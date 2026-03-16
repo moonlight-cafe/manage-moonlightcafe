@@ -1,6 +1,3 @@
-import { th } from "react-day-picker/buddhist";
-
-
 class Config {
         constructor() {
                 // this.backendurl = "http://192.168.1.2:8080/moonlightcafe/v1/";
