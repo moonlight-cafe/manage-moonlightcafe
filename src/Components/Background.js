@@ -83,7 +83,7 @@ function BackgroundManager() {
 
         useEffect(() => {
                 fetchBackgrounds();
-        }, []);
+        }, [fetchBackgrounds]);
 
         const handleSubmit = async (e) => {
                 e.preventDefault();
