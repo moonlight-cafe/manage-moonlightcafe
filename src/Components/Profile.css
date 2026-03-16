@@ -1,0 +1,153 @@
+/* ================================
+   Moonlight Cafe – Profile Page
+================================ */
+/* MAIN */
+.profile-main {
+        max-width: 95%;
+        margin: 0 auto;
+        padding: 10px;
+}
+
+/* SECTION */
+.profile-section {
+        background-color: #1e1e1ecc;
+        border-radius: 12px;
+        padding: 15px 24px;
+        border: 1px solid #333;
+        /* margin-bottom: 32px; */
+}
+
+.profile-sub-section {
+        background-color: #1e1e1ecc;
+        border-radius: 12px;
+        padding: 15px 24px;
+        border: 1px solid #333;
+        /* margin-bottom: 32px; */
+}
+
+.section-title {
+        font-size: 18px;
+        font-weight: 600;
+        color: #47d9a8;
+        margin-bottom: 24px !important;
+}
+
+/* GRID */
+/* GRID (3–3 layout handled already) */
+.info-grid {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 16px;
+}
+
+/* ITEM */
+.info-item {
+        display: flex;
+        align-items: center;
+        gap: 16px;
+        padding: 16px;
+        background-color: #2a2a2a;
+        border-radius: 8px;
+        border: 1px solid #333;
+}
+
+/* ICON */
+.profile-item-icon {
+        font-size: 28px;
+        background-color: #47d9a8;
+        color: #1e1e1e;
+        padding: 10px;
+        border-radius: 8px;
+        flex-shrink: 0;
+}
+
+/* TEXT */
+.info-text {
+        display: flex;
+        flex-direction: column;
+}
+
+.info-label {
+        font-size: 15px;
+        color: #888;
+        margin: 0 0 4px 0;
+}
+
+.info-value {
+        font-size: 16px;
+        font-weight: 500;
+        color: #ffffff;
+        margin: 0;
+}
+
+/* INFO CARD */
+.info-card {
+        display: flex;
+        gap: 16px;
+        padding: 16px;
+        background-color: #2a2a2a;
+        border-radius: 8px;
+        border: 1px solid #333;
+}
+
+/* ICON */
+.icon-box {
+        width: 48px;
+        height: 48px;
+        border-radius: 8px;
+        background-color: #47d9a8;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: #1e1e1e;
+        flex-shrink: 0;
+}
+
+.icon-box span {
+        font-size: 24px;
+}
+
+
+/* BUTTONS */
+.primary-btn {
+        background-color: #47d9a8;
+        color: #1e1e1e;
+        border: none;
+        border-radius: 8px;
+        padding: 14px 32px;
+        font-size: 16px;
+        font-weight: 600;
+        cursor: pointer;
+}
+
+.secondary-btn {
+        display: block;
+        background-color: #2a2a2a;
+        color: #47d9a8;
+        border: 2px solid #47d9a8;
+        border-radius: 8px;
+        padding: 12px 24px;
+        font-size: 15px;
+        font-weight: 600;
+        cursor: pointer;
+        margin-top: 12px;
+}
+
+/* RESPONSIVE */
+@media (max-width: 768px) {
+        .profile-main {
+                padding: 24px;
+        }
+}
+
+@media (max-width: 1024px) {
+        .info-grid {
+                grid-template-columns: repeat(2, 1fr);
+        }
+}
+
+@media (max-width: 600px) {
+        .info-grid {
+                grid-template-columns: 1fr;
+        }
+}

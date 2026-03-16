@@ -1,0 +1,38 @@
+.verify-subtitle {
+        font-size: 15px;
+        color: var(--muted, #9fcfb8);
+        margin-bottom: 30px;
+        text-align: center;
+}
+
+.email-row {
+        display: inline-flex;
+        align-items: center;
+        gap: 10px;
+}
+
+/* ===== OTP Inputs ===== */
+.otp-input-container {
+        display: flex;
+        justify-content: center;
+        gap: 12px;
+        margin-bottom: 30px;
+}
+
+.otp-box {
+        width: 48px;
+        height: 55px;
+        background: #12201c;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        border-radius: 10px;
+        outline: none;
+        text-align: center;
+        font-size: 22px;
+        color: white;
+        transition: 0.2s;
+}
+
+.otp-box:focus {
+        border-color: var(--accent, #47d9a8);
+        box-shadow: 0 0 6px rgba(71, 217, 168, 0.5);
+}
