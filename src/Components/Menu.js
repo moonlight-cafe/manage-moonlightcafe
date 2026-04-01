@@ -34,7 +34,7 @@ function MenuManager() {
         const [actionMenu, setActionMenu] = useState({
                 open: false,
                 employee: null,
-                position: "bottom", // bottom | top
+                position: "bottom-right",
         });
 
         // Add ref to track if fetch is in progress
@@ -94,7 +94,7 @@ function MenuManager() {
         useEffect(() => {
                 const handleClickOutside = (e) => {
                         if (actionMenuRef.current && !actionMenuRef.current.contains(e.target)) {
-                                setActionMenu({ open: false, employee: null, position: "bottom" });
+                                setActionMenu({ open: false, employee: null, position: "bottom-right" });
                         }
                 };
 
@@ -300,17 +300,13 @@ function MenuManager() {
         // Add this function before your return statement
         const openActionMenu = (e, menu) => {
                 e.stopPropagation();
+                const position = Method.getActionMenuPosition(e.currentTarget);
 
-                const buttonRect = e.currentTarget.getBoundingClientRect();
-                const viewportHeight = window.innerHeight;
-
-                const spaceBelow = viewportHeight - buttonRect.bottom;
-                const position = spaceBelow < 120 ? "top" : "bottom";
-
-                setActionMenu({
-                        open: true,
-                        employee: menu, // keeping the key name as 'employee' to match your existing logic
-                        position,
+                setActionMenu((prev) => {
+                        const isSame = prev.open && prev.employee?._id === menu?._id;
+                        return isSame
+                                ? { open: false, employee: null, position: "bottom-right" }
+                                : { open: true, employee: menu, position };
                 });
         };
 
@@ -402,7 +398,7 @@ function MenuManager() {
                                                                                                                                         {canUpdate && (
                                                                                                                                                 <p className="action-menu-item" onClick={() => {
                                                                                                                                                         handleEdit(menu);
-                                                                                                                                                        setActionMenu({ open: false, employee: null, position: "bottom" });
+                                                                                                                                                        setActionMenu({ open: false, employee: null, position: "bottom-right" });
                                                                                                                                                 }}>
                                                                                                                                                         <span className="material-symbols-outlined fs-15 ml-10">edit</span> Edit
                                                                                                                                                 </p>
@@ -412,7 +408,7 @@ function MenuManager() {
                                                                                                                                                 <p className="action-menu-item" onClick={() => {
                                                                                                                                                         setDeleteId(menu._id);
                                                                                                                                                         setModalVisible(true);
-                                                                                                                                                        setActionMenu({ open: false, employee: null, position: "bottom" });
+                                                                                                                                                        setActionMenu({ open: false, employee: null, position: "bottom-right" });
                                                                                                                                                 }}>
                                                                                                                                                         <span className="material-symbols-outlined fs-15 ml-10">delete</span> Delete
                                                                                                                                                 </p>

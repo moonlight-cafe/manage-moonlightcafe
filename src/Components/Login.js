@@ -5,7 +5,8 @@ import { useNavigate } from "react-router-dom";
 import { signInWithPopup } from "firebase/auth";
 import { auth, provider } from "../config/firebase";
 
-const cafelogo = Config.moonlightcafelogo;
+const cafelogo = Config.moonlightcafetext;
+const cafelogosquare = Config.moonlightcafelogosquare;
 
 export default function AdminLogin() {
         const [form, setForm] = useState({
@@ -174,10 +175,10 @@ export default function AdminLogin() {
                 <div className="admin-login-wrapper user-not-select">
                         <div className="admin-login-left user-not-select">
                                 <div className="admin-left-content">
-                                        <h1 className="admin-left-title">Welcome To</h1><br />
-                                        <img src={cafelogo} alt="Moonlight Cafe" className="admin-left-logo" />
-                                        {/* <h1 className="admin-left-title">Moonlight Cafe</h1> */}
-                                        <p className="admin-left-subtitle">
+                                        <h1 className="admin-left-title">Welcome To</h1>
+                                        <img src={cafelogosquare} alt="Moonlight Cafe" className="admin-left-logo" /><br />
+                                        <img src={cafelogo} alt="Moonlight Cafe" className="admin-left-logo" width="200px" />
+                                        <p className="admin-left-subtitle main-color">
                                                 Manage your café operations, users, and reports with ease.
                                         </p>
                                 </div>

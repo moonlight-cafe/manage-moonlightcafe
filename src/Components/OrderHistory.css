@@ -137,9 +137,16 @@
         font-weight: 600;
 }
 
+@media (max-width: 768px) {
+        .order-info {
+                padding: 15px 30px;
+        }
+}
+
 @media (max-width: 600px) {
         .order-info {
                 flex-wrap: wrap;
+                padding: 15px 15px;
         }
 }
 

@@ -38,7 +38,7 @@ function Employees() {
         const [actionMenu, setActionMenu] = useState({
                 open: false,
                 employee: null,
-                position: "bottom", // bottom | top
+                position: "bottom-right",
         });
 
         const actionMenuRef = useRef(null);
@@ -56,7 +56,7 @@ function Employees() {
         useEffect(() => {
                 const handleClickOutside = (e) => {
                         if (actionMenuRef.current && !actionMenuRef.current.contains(e.target)) {
-                                setActionMenu({ open: false, employee: null, position: "bottom" });
+                                setActionMenu({ open: false, employee: null, position: "bottom-right" });
                         }
                 };
 
@@ -308,17 +308,13 @@ function Employees() {
 
         const openActionMenu = (e, employee) => {
                 e.stopPropagation();
+                const position = Method.getActionMenuPosition(e.currentTarget);
 
-                const buttonRect = e.currentTarget.getBoundingClientRect();
-                const viewportHeight = window.innerHeight;
-
-                const spaceBelow = viewportHeight - buttonRect.bottom;
-                const position = spaceBelow < 120 ? "top" : "bottom";
-
-                setActionMenu({
-                        open: true,
-                        employee,
-                        position,
+                setActionMenu((prev) => {
+                        const isSame = prev.open && prev.employee?._id === employee?._id;
+                        return isSame
+                                ? { open: false, employee: null, position: "bottom-right" }
+                                : { open: true, employee, position };
                 });
         };
 
@@ -409,14 +405,14 @@ function Employees() {
                                                                                                                                 {canUpdate && (
                                                                                                                                         <p className="action-menu-item" onClick={() => {
                                                                                                                                                 handleEdit(employee);
-                                                                                                                                                setActionMenu({ open: false, employee: null, position: "bottom" });
+                                                                                                                                                setActionMenu({ open: false, employee: null, position: "bottom-right" });
                                                                                                                                         }}>
                                                                                                                                                 <span className="material-symbols-outlined fs-15 ml-10">edit</span> Edit
                                                                                                                                         </p>
                                                                                                                                 )}
 
                                                                                                                                 <p className="action-menu-item" onClick={() => {
-                                                                                                                                        setActionMenu({ open: false, employee: null, position: "bottom" });
+                                                                                                                                        setActionMenu({ open: false, employee: null, position: "bottom-right" });
                                                                                                                                 }}>
                                                                                                                                         <span className="material-symbols-outlined fs-15 ml-10">visibility</span> View Details
                                                                                                                                 </p>

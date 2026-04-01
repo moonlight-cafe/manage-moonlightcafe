@@ -31,8 +31,8 @@ function UserRole() {
         // Add these with your other state declarations (after sortOrder)
         const [actionMenu, setActionMenu] = useState({
                 open: false,
-                table: null,
-                position: "bottom", // bottom | top
+                userroledata: null,
+                position: "bottom-right",
         });
 
         // Add ref to track if fetch is in progress
@@ -57,7 +57,7 @@ function UserRole() {
         useEffect(() => {
                 const handleClickOutside = (e) => {
                         if (actionMenuRef.current && !actionMenuRef.current.contains(e.target)) {
-                                setActionMenu({ open: false, table: null, position: "bottom" });
+                                setActionMenu({ open: false, userroledata: null, position: "bottom-right" });
                         }
                 };
 
@@ -270,17 +270,13 @@ function UserRole() {
 
         const openActionMenu = (e, table) => {
                 e.stopPropagation();
+                const position = Method.getActionMenuPosition(e.currentTarget);
 
-                const buttonRect = e.currentTarget.getBoundingClientRect();
-                const viewportHeight = window.innerHeight;
-
-                const spaceBelow = viewportHeight - buttonRect.bottom;
-                const position = spaceBelow < 120 ? "top" : "bottom";
-
-                setActionMenu({
-                        open: true,
-                        userroledata: table,
-                        position,
+                setActionMenu((prev) => {
+                        const isSame = prev.open && prev.userroledata?._id === table?._id;
+                        return isSame
+                                ? { open: false, userroledata: null, position: "bottom-right" }
+                                : { open: true, userroledata: table, position };
                 });
         };
 
@@ -362,7 +358,7 @@ function UserRole() {
                                                                                                                         {canUpdate && (
                                                                                                                                 <p className="action-menu-item" onClick={() => {
                                                                                                                                         handleEdit(userroledata);
-                                                                                                                                        setActionMenu({ open: false, table: null, position: "bottom" });
+                                                                                                                                        setActionMenu({ open: false, userroledata: null, position: "bottom-right" });
                                                                                                                                 }}>
                                                                                                                                         <span className="material-symbols-outlined fs-15 ml-10">edit</span> Edit
                                                                                                                                 </p>
@@ -372,7 +368,7 @@ function UserRole() {
                                                                                                                                 <p className="action-menu-item" onClick={() => {
                                                                                                                                         setDeleteId(userroledata._id);
                                                                                                                                         setModalVisible(true);
-                                                                                                                                        setActionMenu({ open: false, table: null, position: "bottom" });
+                                                                                                                                        setActionMenu({ open: false, userroledata: null, position: "bottom-right" });
                                                                                                                                 }}>
                                                                                                                                         <span className="material-symbols-outlined fs-15 ml-10">delete</span> Delete
                                                                                                                                 </p>

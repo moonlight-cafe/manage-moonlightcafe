@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import { useLocation } from "react-router-dom";
 import "./Background.css";
 import { Navbar, Method, API, Config } from "../config/Init.js";
@@ -25,18 +25,20 @@ function BackgroundManager() {
         const [actionMenu, setActionMenu] = useState({
                 open: false,
                 item: null,
-                position: "bottom",
+                position: "bottom-right",
         });
         const actionMenuRef = useRef(null);
 
-        const showPopup = (message, type = "error") =>
-                Method.showPopup(setPopup, popupTimer, message, type);
+        const showPopup = useCallback(
+                (message, type = "error") => Method.showPopup(setPopup, popupTimer, message, type),
+                []
+        );
 
         // Handle click outside action menu
         useEffect(() => {
                 const handleClickOutside = (e) => {
                         if (actionMenuRef.current && !actionMenuRef.current.contains(e.target)) {
-                                setActionMenu({ open: false, item: null, position: "bottom" });
+                                setActionMenu({ open: false, item: null, position: "bottom-right" });
                         }
                 };
 
@@ -44,7 +46,25 @@ function BackgroundManager() {
                 return () => document.removeEventListener("mousedown", handleClickOutside);
         }, []);
 
-        const fetchBackgrounds = async () => {
+        // Update background images cookie with only active images
+        const updateBackgroundImagesCookie = useCallback((images) => {
+                try {
+                        // Filter only active images (status === 1) and extract URLs
+                        const activeImages = images
+                                .filter((img) => img.status === 1)
+                                .map((img) => img.url);
+
+                        // Update the cookie
+                        Method.setCookie("backgroundimgs", activeImages);
+
+                        // Dispatch event to notify BackgroundManager
+                        window.dispatchEvent(new Event("themeChanged"));
+                } catch (err) {
+                        console.error("Failed to update background images cookie:", err);
+                }
+        }, []);
+
+        const fetchBackgrounds = useCallback(async () => {
                 try {
                         setLoading(true);
                         const res = await API.fetchBackground();
@@ -61,25 +81,7 @@ function BackgroundManager() {
                 } finally {
                         setLoading(false);
                 }
-        };
-
-        // Update background images cookie with only active images
-        const updateBackgroundImagesCookie = (images) => {
-                try {
-                        // Filter only active images (status === 1) and extract URLs
-                        const activeImages = images
-                                .filter((img) => img.status === 1)
-                                .map((img) => img.url);
-
-                        // Update the cookie
-                        Method.setCookie("backgroundimgs", activeImages);
-
-                        // Dispatch event to notify BackgroundManager
-                        window.dispatchEvent(new Event("themeChanged"));
-                } catch (err) {
-                        console.error("Failed to update background images cookie:", err);
-                }
-        };
+        }, [showPopup, updateBackgroundImagesCookie]);
 
         useEffect(() => {
                 fetchBackgrounds();
@@ -218,17 +220,13 @@ function BackgroundManager() {
 
         const openActionMenu = (e, item) => {
                 e.stopPropagation();
+                const position = Method.getActionMenuPosition(e.currentTarget);
 
-                const buttonRect = e.currentTarget.getBoundingClientRect();
-                const viewportHeight = window.innerHeight;
-
-                const spaceBelow = viewportHeight - buttonRect.bottom;
-                const position = spaceBelow < 120 ? "top" : "bottom";
-
-                setActionMenu({
-                        open: true,
-                        item,
-                        position,
+                setActionMenu((prev) => {
+                        const isSame = prev.open && prev.item?._id === item?._id;
+                        return isSame
+                                ? { open: false, item: null, position: "bottom-right" }
+                                : { open: true, item, position };
                 });
         };
 
@@ -331,7 +329,7 @@ function BackgroundManager() {
                                                                                                                                                                 setActionMenu({
                                                                                                                                                                         open: false,
                                                                                                                                                                         item: null,
-                                                                                                                                                                        position: "bottom",
+                                                                                                                                                                        position: "bottom-right",
                                                                                                                                                                 });
                                                                                                                                                         }}
                                                                                                                                                 >

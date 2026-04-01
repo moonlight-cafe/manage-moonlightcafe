@@ -202,6 +202,29 @@ class Methods {
                 );
         };
 
+        getActionMenuPosition(target, options = {}) {
+                const rect = target?.getBoundingClientRect ? target.getBoundingClientRect() : target;
+                if (!rect) return "bottom-right";
+
+                const {
+                        menuWidth = 180,
+                        menuHeight = 140,
+                } = options;
+
+                const viewportWidth = window.innerWidth || 0;
+                const viewportHeight = window.innerHeight || 0;
+
+                const spaceBelow = viewportHeight - rect.bottom;
+                const spaceAbove = rect.top;
+                const spaceRight = viewportWidth - rect.right;
+                const spaceLeft = rect.left;
+
+                const vertical = spaceBelow >= menuHeight || spaceBelow >= spaceAbove ? "bottom" : "top";
+                const horizontal = spaceRight >= menuWidth || spaceRight >= spaceLeft ? "right" : "left";
+
+                return `${vertical}-${horizontal}`;
+        }
+
 
         // Loader
         showLoader() {
