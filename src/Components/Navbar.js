@@ -1,10 +1,10 @@
 import React, { useState, useRef, useEffect } from "react";
-import { useNavigate, useLocation } from "react-router-dom";
+import { useNavigate, useLocation, NavLink } from "react-router-dom";
 import "./Navbar.css";
 import { Method, API, Config } from "../config/Init.js"
 import { User } from 'lucide-react';
 
-function TopNavbar() {
+function TopNavbar({ toggleMobileMenu }) {
         const navigate = useNavigate();
 
         const [isProfileOpen, setIsProfileOpen] = useState(false);
@@ -138,6 +138,9 @@ function TopNavbar() {
         return (
                 <>
                         <header className="top-navbar">
+                                <button className="mobile-menu-btn" onClick={toggleMobileMenu}>
+                                        <span className="material-symbols-outlined">menu</span>
+                                </button>
                                 <div className="top-navbar-inner">
                                         <div className="clock-box user-not-select">
                                                 {Method.formatDateTime(currentTime)}
@@ -213,7 +216,9 @@ function TopNavbar() {
                                                                         <div className="notif-empty">No notifications</div>
                                                                 )}
                                                                 <div className="drop-separator"></div>
-                                                                <a className="notif-more user-not-select" href="/notifications">View All Notifications</a>
+                                                                <NavLink className="notif-more user-not-select" to="/notifications">
+                                                                        View All Notifications
+                                                                </NavLink>
                                                         </div>
                                                 )}
                                         </div>
@@ -300,6 +305,7 @@ export default function Navbar() {
         const location = useLocation();
         const [isPinned, setIsPinned] = useState(false);
         const [isHovered, setIsHovered] = useState(false);
+        const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
         const [menus, setMenus] = useState([]);
         const [loading, setLoading] = useState(false);
         const [openSubmenus, setOpenSubmenus] = useState(new Set());
@@ -336,7 +342,7 @@ export default function Navbar() {
 
         useEffect(() => {
                 Method.setCookie("navbarPinned", isPinned, 360)
-                if (isPinned || isHovered) {
+                if (isPinned /* || isHovered */) {
                         document.body.classList.add("navbar-pinned");
                 } else {
                         document.body.classList.remove("navbar-pinned");
@@ -440,17 +446,16 @@ export default function Navbar() {
         const handleMenuClick = (menu, e) => {
                 const hasChildren = menu.children?.length > 0;
                 if (hasChildren) {
-                        e.preventDefault();
+                        if (e?.preventDefault) e.preventDefault();
                         if (!isPinned && !isHovered) return;
                         toggleSubmenu(menu._id, true);
+                } else {
+                        setIsMobileMenuOpen(false);
                 }
         };
 
 
-        const isExpanded = isPinned || isHovered;
-        const logoSrc = isExpanded
-                ? Config.moonlightcafelogo
-                : Config.moonlightcafelogosquare;
+        const isExpanded = isPinned || isHovered || isMobileMenuOpen;
 
         const permissions = Method.getPermissions();
         const canViewMenu = (path) => Method.canAccess(path, "view");
@@ -469,27 +474,41 @@ export default function Navbar() {
 
         return (
                 <>
-                        <TopNavbar menus={menus} />
+                        <TopNavbar toggleMobileMenu={() => setIsMobileMenuOpen(true)} />
+
+                        {isMobileMenuOpen && (
+                                <div className="mobile-overlay active" onClick={() => setIsMobileMenuOpen(false)}></div>
+                        )}
 
                         <aside
-                                className={`navbar ${isPinned ? "pinned" : ""}`}
+                                className={`navbar ${isPinned ? "pinned" : ""} ${isMobileMenuOpen ? "mobile-open" : ""}`}
                                 onMouseEnter={() => setIsHovered(true)}
                                 onMouseLeave={() => setIsHovered(false)}
                         >
                                 <div className="navbar-top">
-                                        <img
-                                                src={logoSrc}
-                                                alt="DineCraft"
-                                                className={`logo ${isExpanded ? "logo-landscape" : "logo-square"}`}
-                                        />
+                                        <div className={`logo-stack ${isExpanded ? "open" : ""}`}>
+                                                <img
+                                                        src={Config.moonlightcafelogosquare}
+                                                        alt="Moonlight Cafe"
+                                                        className="logo logo-square"
+                                                />
+                                                <img
+                                                        src={Config.moonlightcafetext}
+                                                        alt="Moonlight Cafe"
+                                                        className="logo logo-landscape"
+                                                />
+                                        </div>
 
                                         <div
-                                                className={`toggle-btn ${isPinned ? "active" : ""}`}
+                                                className={`toggle-btn desktop-toggle ${isPinned ? "active" : ""}`}
                                                 onClick={() => setIsPinned(!isPinned)}
                                         >
                                                 <span className="material-symbols-outlined">
                                                         {isPinned ? "adjust" : "circle"}
                                                 </span>
+                                        </div>
+                                        <div className="mobile-close-btn" onClick={() => setIsMobileMenuOpen(false)}>
+                                                <span className="material-symbols-outlined">close</span>
                                         </div>
                                 </div>
 
@@ -502,35 +521,47 @@ export default function Navbar() {
 
                                                         return (
                                                                 <div key={menu._id} className="menu-item-container">
-                                                                        <a
-                                                                                href={hasChildren ? "#" : menu.redirecturl || "#"}
-                                                                                className={`menu-item ${isActive ? "active" : ""} ${hasChildren ? "has-children" : ""}`}
-                                                                                onClick={(e) => handleMenuClick(menu, e)}
-                                                                        >
-                                                                                <span className="menu-icon material-symbols-outlined">
-                                                                                        {menu.icon || "menu"}
-                                                                                </span>
-                                                                                <span className="menu-text">{menu.name}</span>
-                                                                                {hasChildren && (
+                                                                        {hasChildren ? (
+                                                                                <button
+                                                                                        type="button"
+                                                                                        className={`menu-item ${isActive ? "active" : ""} has-children`}
+                                                                                        onClick={(e) => handleMenuClick(menu, e)}
+                                                                                >
+                                                                                        <span className="menu-icon material-symbols-outlined">
+                                                                                                {menu.icon || "menu"}
+                                                                                        </span>
+                                                                                        <span className="menu-text">{menu.name}</span>
                                                                                         <span className={`submenu-arrow material-symbols-outlined ${isSubmenuOpen ? "open" : ""}`}>
                                                                                                 keyboard_arrow_right
                                                                                         </span>
-                                                                                )}
-                                                                        </a>
+                                                                                </button>
+                                                                        ) : (
+                                                                                <NavLink
+                                                                                        to={menu.redirecturl || "/"}
+                                                                                        className={`menu-item ${isActive ? "active" : ""}`}
+                                                                                        onClick={(e) => handleMenuClick(menu, e)}
+                                                                                >
+                                                                                        <span className="menu-icon material-symbols-outlined">
+                                                                                                {menu.icon || "menu"}
+                                                                                        </span>
+                                                                                        <span className="menu-text">{menu.name}</span>
+                                                                                </NavLink>
+                                                                        )}
 
                                                                         {hasChildren && (
                                                                                 <div className={`submenu ${isSubmenuOpen ? "open" : ""}`}>
                                                                                         {menu.children.map(child => (
-                                                                                                <a
+                                                                                                <NavLink
                                                                                                         key={child._id}
-                                                                                                        href={child.redirecturl || "#"}
+                                                                                                        to={child.redirecturl || "/"}
+                                                                                                        onClick={() => setIsMobileMenuOpen(false)}
                                                                                                         className={`submenu-item ${isChildMenuActive(child.redirecturl) ? "active" : ""}`}
                                                                                                 >
                                                                                                         <span className="submenu-icon material-symbols-outlined">
                                                                                                                 {child.icon || "fiber_manual_record"}
                                                                                                         </span>
                                                                                                         <span className="submenu-text">{child.name}</span>
-                                                                                                </a>
+                                                                                                </NavLink>
                                                                                         ))}
                                                                                 </div>
                                                                         )}
@@ -539,13 +570,14 @@ export default function Navbar() {
                                                 })
                                         ) : (
                                                 <div className="menu-item-container">
-                                                        <a
-                                                                href="/dashboard"
+                                                        <NavLink
+                                                                to="/dashboard"
+                                                                onClick={() => setIsMobileMenuOpen(false)}
                                                                 className={`menu-item ${location.pathname === "/dashboard" ? "active" : ""}`}
                                                         >
                                                                 <span className="menu-icon material-symbols-outlined">home</span>
                                                                 <span className="menu-text">Dashboard</span>
-                                                        </a>
+                                                        </NavLink>
                                                 </div>
                                         )}
                                 </nav>

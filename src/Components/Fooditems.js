@@ -52,7 +52,7 @@ function Fooditems() {
         const [actionMenu, setActionMenu] = useState({
                 open: false,
                 item: null,
-                position: "bottom", // bottom | top
+                position: "bottom-right",
         });
 
         // refs
@@ -98,17 +98,13 @@ function Fooditems() {
         // Add this function before your return statement (after clearAllFilters)
         const openActionMenu = useCallback((e, item) => {
                 e.stopPropagation();
+                const position = Method.getActionMenuPosition(e.currentTarget);
 
-                const buttonRect = e.currentTarget.getBoundingClientRect();
-                const viewportHeight = window.innerHeight;
-
-                const spaceBelow = viewportHeight - buttonRect.bottom;
-                const position = spaceBelow < 120 ? "top" : "bottom";
-
-                setActionMenu({
-                        open: true,
-                        item,
-                        position,
+                setActionMenu((prev) => {
+                        const isSame = prev.open && prev.item?._id === item?._id;
+                        return isSame
+                                ? { open: false, item: null, position: "bottom-right" }
+                                : { open: true, item, position };
                 });
         }, []);
 
@@ -138,7 +134,7 @@ function Fooditems() {
         useEffect(() => {
                 const handleClickOutside = (e) => {
                         if (actionMenuRef.current && !actionMenuRef.current.contains(e.target)) {
-                                setActionMenu({ open: false, item: null, position: "bottom" });
+                                setActionMenu({ open: false, item: null, position: "bottom-right" });
                         }
                 };
 
@@ -476,7 +472,7 @@ function Fooditems() {
                                                         {canUpdate && (
                                                                 <p className="action-menu-item" onClick={() => {
                                                                         handleEdit(item);
-                                                                        setActionMenu({ open: false, item: null, position: "bottom" });
+                                                                        setActionMenu({ open: false, item: null, position: "bottom-right" });
                                                                 }}>
                                                                         <span className="material-symbols-outlined fs-15 ml-10">edit</span> Edit
                                                                 </p>
@@ -484,7 +480,7 @@ function Fooditems() {
 
                                                         <p className="action-menu-item" onClick={() => {
                                                                 openFoodModal(item);
-                                                                setActionMenu({ open: false, item: null, position: "bottom" });
+                                                                setActionMenu({ open: false, item: null, position: "bottom-right" });
                                                         }}>
                                                                 <span className="material-symbols-outlined fs-15 ml-10">visibility</span> View Details
                                                         </p>
@@ -493,7 +489,7 @@ function Fooditems() {
                                                                 <p className="action-menu-item" onClick={() => {
                                                                         setDeleteId(item._id);
                                                                         setModalVisible(true);
-                                                                        setActionMenu({ open: false, item: null, position: "bottom" });
+                                                                        setActionMenu({ open: false, item: null, position: "bottom-right" });
                                                                 }}>
                                                                         <span className="material-symbols-outlined fs-15 ml-10">delete</span> Delete
                                                                 </p>

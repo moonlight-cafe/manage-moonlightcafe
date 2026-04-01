@@ -419,3 +419,12 @@
         cursor: default !important;
         color: rgba(255, 255, 255, 0.7);
 }
+
+@media (max-width: 480px) {
+        .popup {
+                top: 20px;
+                right: 5%;
+                left: 5%;
+                width: 90%;
+        }
+}

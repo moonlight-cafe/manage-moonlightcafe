@@ -32,7 +32,7 @@ function TableManager() {
         const [actionMenu, setActionMenu] = useState({
                 open: false,
                 table: null,
-                position: "bottom", // bottom | top
+                position: "bottom-right",
         });
 
         // Add ref to track if fetch is in progress
@@ -57,7 +57,7 @@ function TableManager() {
         useEffect(() => {
                 const handleClickOutside = (e) => {
                         if (actionMenuRef.current && !actionMenuRef.current.contains(e.target)) {
-                                setActionMenu({ open: false, table: null, position: "bottom" });
+                                setActionMenu({ open: false, table: null, position: "bottom-right" });
                         }
                 };
 
@@ -278,17 +278,13 @@ function TableManager() {
 
         const openActionMenu = (e, table) => {
                 e.stopPropagation();
+                const position = Method.getActionMenuPosition(e.currentTarget);
 
-                const buttonRect = e.currentTarget.getBoundingClientRect();
-                const viewportHeight = window.innerHeight;
-
-                const spaceBelow = viewportHeight - buttonRect.bottom;
-                const position = spaceBelow < 120 ? "top" : "bottom";
-
-                setActionMenu({
-                        open: true,
-                        table,
-                        position,
+                setActionMenu((prev) => {
+                        const isSame = prev.open && prev.table?._id === table?._id;
+                        return isSame
+                                ? { open: false, table: null, position: "bottom-right" }
+                                : { open: true, table, position };
                 });
         };
 
@@ -370,7 +366,7 @@ function TableManager() {
                                                                                                                         {canUpdate && (
                                                                                                                                 <p className="action-menu-item" onClick={() => {
                                                                                                                                         handleEdit(table);
-                                                                                                                                        setActionMenu({ open: false, table: null, position: "bottom" });
+                                                                                                                                        setActionMenu({ open: false, table: null, position: "bottom-right" });
                                                                                                                                 }}>
                                                                                                                                         <span className="material-symbols-outlined fs-15 ml-10">edit</span> Edit
                                                                                                                                 </p>
@@ -380,7 +376,7 @@ function TableManager() {
                                                                                                                                 <p className="action-menu-item" onClick={() => {
                                                                                                                                         setDeleteId(table._id);
                                                                                                                                         setModalVisible(true);
-                                                                                                                                        setActionMenu({ open: false, table: null, position: "bottom" });
+                                                                                                                                        setActionMenu({ open: false, table: null, position: "bottom-right" });
                                                                                                                                 }}>
                                                                                                                                         <span className="material-symbols-outlined fs-15 ml-10">delete</span> Delete
                                                                                                                                 </p>

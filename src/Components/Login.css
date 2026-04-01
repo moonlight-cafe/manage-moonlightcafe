@@ -26,16 +26,15 @@
 }
 
 .admin-left-logo {
-        width: 150px;
-        margin-bottom: 20px;
+        width: 200px;
         filter: drop-shadow(0 0 10px rgba(71, 217, 168, 0.3));
 }
 
 .admin-left-title {
         font-size: 1.8rem;
+        margin: 0;
         font-weight: 600;
         color: #47d9a8;
-        margin-bottom: 10px;
 }
 
 .admin-left-subtitle {

@@ -1,16 +1,25 @@
 import { useEffect, useRef, useState } from "react";
 import { useLocation } from "react-router-dom";
 import { Method } from "../config/Init.js";
+import "./BackgroundManager.css";
 
 const BACKGROUND_INTERVAL = 10000;
+const TRANSITION_DURATION = 1200;
+const ANIMATIONS = ["fade", "slide-left", "slide-right", "zoom", "blur"];
 
 export default function BackgroundManager() {
         const location = useLocation();
 
         const [images, setImages] = useState([]);
         const [darkMode, setDarkMode] = useState(false);
+        const [currentImage, setCurrentImage] = useState("");
+        const [nextImage, setNextImage] = useState("");
+        const [activeAnimation, setActiveAnimation] = useState("fade");
 
         const lastIndexRef = useRef(-1);
+        const intervalRef = useRef(null);
+        const transitionRef = useRef(null);
+        const isTransitioningRef = useRef(false);
 
         const getBackgroundImages = () => {
                 try {
@@ -25,7 +34,7 @@ export default function BackgroundManager() {
                         }
                         return [];
                 } catch (err) {
-                        console.error("❌ Invalid background image cookie", err);
+                        console.error("Invalid background image cookie", err);
                         return [];
                 }
         };
@@ -34,6 +43,18 @@ export default function BackgroundManager() {
                 const admindata = Method.getCookie("admindata");
                 const theme = Number(JSON.parse(admindata)?.darkmodeaccess) || 0;
                 setDarkMode(theme);
+        };
+
+        const clearTimers = () => {
+                if (intervalRef.current) {
+                        clearInterval(intervalRef.current);
+                        intervalRef.current = null;
+                }
+                if (transitionRef.current) {
+                        clearTimeout(transitionRef.current);
+                        transitionRef.current = null;
+                }
+                isTransitioningRef.current = false;
         };
 
         useEffect(() => {
@@ -58,15 +79,34 @@ export default function BackgroundManager() {
         }, []);
 
         useEffect(() => {
+                clearTimers();
+
                 if (darkMode === 1) {
                         document.body.style.backgroundImage = "none";
                         document.body.style.backgroundColor = "#1e1e1e";
+                        setCurrentImage("");
+                        setNextImage("");
+                        lastIndexRef.current = -1;
                         return;
                 }
 
-                if (!images.length) return;
+                document.body.style.backgroundImage = "none";
+                document.body.style.backgroundColor = "#1e1e1efa";
 
-                const updateBackground = () => {
+                if (!images.length) {
+                        setCurrentImage("");
+                        setNextImage("");
+                        lastIndexRef.current = -1;
+                        return;
+                }
+
+                if (!currentImage || !images.includes(currentImage)) {
+                        const firstIndex = Math.floor(Math.random() * images.length);
+                        lastIndexRef.current = firstIndex;
+                        setCurrentImage(images[firstIndex]);
+                }
+
+                const pickNextIndex = () => {
                         let randomIndex;
 
                         do {
@@ -76,23 +116,49 @@ export default function BackgroundManager() {
                                 images.length > 1
                         );
 
-                        lastIndexRef.current = randomIndex;
-
-                        document.body.style.backgroundImage = `url('${images[randomIndex]}')`;
-                        document.body.style.backgroundSize = "cover";
-                        document.body.style.backgroundPosition = "center";
-                        document.body.style.backgroundRepeat = "no-repeat";
-                        document.body.style.backgroundAttachment = "fixed";
-                        document.body.style.backgroundBlendMode = "multiply";
-                        document.body.style.backgroundColor = "#1e1e1efa";
-
+                        return randomIndex;
                 };
 
-                updateBackground();
-                const interval = setInterval(updateBackground, BACKGROUND_INTERVAL);
+                const pickAnimation = () =>
+                        ANIMATIONS[Math.floor(Math.random() * ANIMATIONS.length)];
 
-                return () => clearInterval(interval);
-        }, [images, darkMode, location.pathname]);
+                const updateBackground = () => {
+                        if (isTransitioningRef.current) return;
+                        if (!images.length) return;
 
-        return null;
+                        const randomIndex = pickNextIndex();
+                        const next = images[randomIndex];
+                        const animation = pickAnimation();
+
+                        lastIndexRef.current = randomIndex;
+                        isTransitioningRef.current = true;
+                        setActiveAnimation(animation);
+                        setNextImage(next);
+
+                        transitionRef.current = setTimeout(() => {
+                                setCurrentImage(next);
+                                setNextImage("");
+                                isTransitioningRef.current = false;
+                        }, TRANSITION_DURATION);
+                };
+
+                intervalRef.current = setInterval(updateBackground, BACKGROUND_INTERVAL);
+
+                return () => clearTimers();
+        }, [images, darkMode, location.pathname, currentImage]);
+
+        const animationClass = nextImage ? `anim-${activeAnimation}` : "";
+
+        return (
+                <div className={`bg-manager ${darkMode === 1 ? "hidden" : ""} ${animationClass}`}>
+                        <div
+                                className="bg-layer current"
+                                style={{ backgroundImage: currentImage ? `url('${currentImage}')` : "none" }}
+                        />
+                        <div
+                                className="bg-layer next"
+                                style={{ backgroundImage: nextImage ? `url('${nextImage}')` : "none" }}
+                        />
+                </div>
+        );
 }

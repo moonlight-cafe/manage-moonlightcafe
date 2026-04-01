@@ -462,4 +462,9 @@
         .bg-upload-icon .material-symbols-outlined {
                 font-size: 48px;
         }
+
+        .bg-upload-box {
+                flex-direction: column;
+                align-items: center;
+        }
 }

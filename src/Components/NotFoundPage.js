@@ -1,6 +1,5 @@
 // Components/NotFoundPage.js
 import React from 'react';
-import './NotFoundPage.css';
 import { Navbar, Config } from "../config/Init.js"
 const pagenotfoundimg = Config.pagenotfoundimg;
 

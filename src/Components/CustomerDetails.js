@@ -19,7 +19,7 @@ function CustomerDetails() {
         const [actionMenu, setActionMenu] = useState({
                 open: false,
                 customer: null,
-                position: "bottom", // bottom | top
+                position: "bottom-right",
         });
 
         const actionMenuRef = useRef(null);
@@ -47,7 +47,7 @@ function CustomerDetails() {
         useEffect(() => {
                 const handleClickOutside = (e) => {
                         if (actionMenuRef.current && !actionMenuRef.current.contains(e.target)) {
-                                setActionMenu({ open: false, customer: null, position: "bottom" });
+                                setActionMenu({ open: false, customer: null, position: "bottom-right" });
                         }
                 };
 
@@ -119,17 +119,13 @@ function CustomerDetails() {
 
         const openActionMenu = (e, customer) => {
                 e.stopPropagation();
+                const position = Method.getActionMenuPosition(e.currentTarget);
 
-                const buttonRect = e.currentTarget.getBoundingClientRect();
-                const viewportHeight = window.innerHeight;
-
-                const spaceBelow = viewportHeight - buttonRect.bottom;
-                const position = spaceBelow < 120 ? "top" : "bottom";
-
-                setActionMenu({
-                        open: true,
-                        customer,
-                        position,
+                setActionMenu((prev) => {
+                        const isSame = prev.open && prev.customer?._id === customer?._id;
+                        return isSame
+                                ? { open: false, customer: null, position: "bottom-right" }
+                                : { open: true, customer, position };
                 });
         };
 
@@ -199,14 +195,14 @@ function CustomerDetails() {
                                                                                                                         <div ref={actionMenuRef} className={`action-menu ${actionMenu.position}`} >
                                                                                                                                 <p className="action-menu-item" onClick={() => {
                                                                                                                                         OrderHistory(data);
-                                                                                                                                        setActionMenu({ open: false, customer: null, position: "bottom" });
+                                                                                                                                        setActionMenu({ open: false, customer: null, position: "bottom-right" });
                                                                                                                                 }}>
                                                                                                                                         <span className="material-symbols-outlined fs-15 ml-10">open_in_new</span> View Orders
                                                                                                                                 </p>
 
                                                                                                                                 <p className="action-menu-item" onClick={() => {
                                                                                                                                         console.log("View Details:", data);
-                                                                                                                                        setActionMenu({ open: false, customer: null, position: "bottom" });
+                                                                                                                                        setActionMenu({ open: false, customer: null, position: "bottom-right" });
                                                                                                                                 }}>
                                                                                                                                         <span className="material-symbols-outlined fs-15 ml-10">visibility</span> View Details
                                                                                                                                 </p>

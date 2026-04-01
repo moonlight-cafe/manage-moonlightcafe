@@ -30,7 +30,7 @@ function CategoryMaster() {
         const [actionMenu, setActionMenu] = useState({
                 open: false,
                 category: null,
-                position: "bottom", // bottom | top
+                position: "bottom-right",
         });
 
         // Add ref to track if fetch is in progress
@@ -54,7 +54,7 @@ function CategoryMaster() {
         useEffect(() => {
                 const handleClickOutside = (e) => {
                         if (actionMenuRef.current && !actionMenuRef.current.contains(e.target)) {
-                                setActionMenu({ open: false, category: null, position: "bottom" });
+                                setActionMenu({ open: false, category: null, position: "bottom-right" });
                         }
                 };
 
@@ -272,17 +272,13 @@ function CategoryMaster() {
 
         const openActionMenu = (e, category) => {
                 e.stopPropagation();
+                const position = Method.getActionMenuPosition(e.currentTarget);
 
-                const buttonRect = e.currentTarget.getBoundingClientRect();
-                const viewportHeight = window.innerHeight;
-
-                const spaceBelow = viewportHeight - buttonRect.bottom;
-                const position = spaceBelow < 120 ? "top" : "bottom";
-
-                setActionMenu({
-                        open: true,
-                        category,
-                        position,
+                setActionMenu((prev) => {
+                        const isSame = prev.open && prev.category?._id === category?._id;
+                        return isSame
+                                ? { open: false, category: null, position: "bottom-right" }
+                                : { open: true, category, position };
                 });
         };
 
@@ -364,7 +360,7 @@ function CategoryMaster() {
                                                                                                                         {canUpdate && (
                                                                                                                                 <p className="action-menu-item" onClick={() => {
                                                                                                                                         handleEdit(cat);
-                                                                                                                                        setActionMenu({ open: false, category: null, position: "bottom" });
+                                                                                                                                        setActionMenu({ open: false, category: null, position: "bottom-right" });
                                                                                                                                 }}>
                                                                                                                                         <span className="material-symbols-outlined fs-15 ml-10">edit</span> Edit
                                                                                                                                 </p>
@@ -374,7 +370,7 @@ function CategoryMaster() {
                                                                                                                                 <p className="action-menu-item" onClick={() => {
                                                                                                                                         setDeleteId(cat._id);
                                                                                                                                         setModalVisible(true);
-                                                                                                                                        setActionMenu({ open: false, category: null, position: "bottom" });
+                                                                                                                                        setActionMenu({ open: false, category: null, position: "bottom-right" });
                                                                                                                                 }}>
                                                                                                                                         <span className="material-symbols-outlined fs-15 ml-10">delete</span> Delete
                                                                                                                                 </p>

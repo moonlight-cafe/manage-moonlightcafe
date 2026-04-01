@@ -3,6 +3,29 @@ import ReactDOM from 'react-dom/client';
 import './index.css';
 import App from './App';
 import reportWebVitals from './reportWebVitals';
+import MoonlightCafeLogoSquare from './assets/MoonlightCafeLogoSquare-47d9a8.png';
+
+const ensureLinkTag = (rel) => {
+  let link = document.querySelector(`link[rel="${rel}"]`);
+  if (!link) {
+    link = document.createElement('link');
+    link.rel = rel;
+    document.head.appendChild(link);
+  }
+  return link;
+};
+
+const setAppIcons = (href) => {
+  if (!href) return;
+  const favicon = ensureLinkTag('icon');
+  favicon.type = 'image/png';
+  favicon.href = href;
+
+  const appleTouch = ensureLinkTag('apple-touch-icon');
+  appleTouch.href = href;
+};
+
+setAppIcons(MoonlightCafeLogoSquare);
 
 const root = ReactDOM.createRoot(document.getElementById('root'));
 root.render(
