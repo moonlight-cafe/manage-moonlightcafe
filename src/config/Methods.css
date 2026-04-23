@@ -206,7 +206,7 @@
         visibility: hidden;
         transition: opacity 0.3s ease;
         pointer-events: none;
-        z-index: 10;
+        z-index: 1000000000000000;
 }
 
 .tooltip-wrapper:hover .tooltip-box {

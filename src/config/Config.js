@@ -22,7 +22,9 @@ class Config {
                 this.thankyouimg = "https://res.cloudinary.com/dqdv99ydb/image/upload/v1754332972/tempfolder/d7zu3almhglzjmpikmvd.png"
                 this.googleLogo = "https://res.cloudinary.com/dqdv99ydb/image/upload/v1754333910/tempfolder/pomisungxxmzk4ebrhpc.png"
                 this.icons = {
-                        sort: "sync_alt"
+                        sort: "sync_alt",
+                        sort_asc: "arrow_upward",
+                        sort_desc: "arrow_downward"
                 }
                 this.Sevice_type = [
                         { label: "Dine in", value: 1 },

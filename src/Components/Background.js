@@ -26,7 +26,23 @@ function BackgroundManager() {
                 open: false,
                 item: null,
                 position: "bottom-right",
+                isClosing: false
         });
+
+        const closeActionMenu = () => {
+                setActionMenu((prev) => {
+                        if (!prev.open) return prev;
+                        setTimeout(() => {
+                                setActionMenu((current) => {
+                                        if (current.isClosing) {
+                                                return { open: false, item: null, position: "bottom-right", isClosing: false };
+                                        }
+                                        return current;
+                                });
+                        }, 160);
+                        return { ...prev, isClosing: true };
+                });
+        };
         const actionMenuRef = useRef(null);
 
         const showPopup = useCallback(
@@ -38,7 +54,7 @@ function BackgroundManager() {
         useEffect(() => {
                 const handleClickOutside = (e) => {
                         if (actionMenuRef.current && !actionMenuRef.current.contains(e.target)) {
-                                setActionMenu({ open: false, item: null, position: "bottom-right" });
+                                closeActionMenu();
                         }
                 };
 
@@ -223,10 +239,23 @@ function BackgroundManager() {
                 const position = Method.getActionMenuPosition(e.currentTarget);
 
                 setActionMenu((prev) => {
-                        const isSame = prev.open && prev.item?._id === item?._id;
-                        return isSame
-                                ? { open: false, item: null, position: "bottom-right" }
-                                : { open: true, item, position };
+                        const isSame = (prev.open || prev.isClosing) && prev.item?._id === item?._id;
+                        if (isSame) {
+                                if (!prev.isClosing) {
+                                        setTimeout(() => {
+                                                setActionMenu((current) => {
+                                                        if (current.isClosing) {
+                                                                return { open: false, item: null, position: "bottom-right", isClosing: false };
+                                                        }
+                                                        return current;
+                                                });
+                                        }, 160);
+                                        return { ...prev, isClosing: true };
+                                }
+                                return prev;
+                        } else {
+                                return { open: true, item: item, position, isClosing: false };
+                        }
                 });
         };
 
@@ -302,7 +331,7 @@ function BackgroundManager() {
                                                                                                 <tr key={item._id}>
                                                                                                         <td className="common-table-td" style={{ position: "relative" }}>
                                                                                                                 <button
-                                                                                                                        className="actionbtn"
+                                                                                                                        className="actionbtn" onMouseDown={(e) => e.stopPropagation()}
                                                                                                                         onClick={(e) => {
                                                                                                                                 if (!canDelete) return;
                                                                                                                                 openActionMenu(e, item);
@@ -318,7 +347,7 @@ function BackgroundManager() {
                                                                                                                         actionMenu.item?._id === item._id && (
                                                                                                                                 <div
                                                                                                                                         ref={actionMenuRef}
-                                                                                                                                        className={`action-menu ${actionMenu.position}`}
+                                                                                                                                        className={`action-menu ${actionMenu.position} ${actionMenu.isClosing ? 'closing' : ''}`}
                                                                                                                                 >
                                                                                                                                         {canDelete && (
                                                                                                                                                 <p

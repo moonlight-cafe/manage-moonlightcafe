@@ -30,7 +30,7 @@ axios.interceptors.request.use(
         (error) => Promise.reject(error)
 );
 
-// 🔄 Auto Update Cookie + Logout on 401
+// ðŸ”„ Auto Update Cookie + Logout on 401
 axios.interceptors.response.use(
         (response) => response,
         (error) => {
@@ -50,7 +50,7 @@ axios.interceptors.response.use(
 
 export default class APIs {
 
-        // 🔒 SAFE POST
+        // ðŸ”’ SAFE POST
         async safePost(url, body = {}, headers = {}) {
                 try {
                         const response = await axios.post(`${Config.backendurl}${url}`, body, { headers });
@@ -69,7 +69,7 @@ export default class APIs {
                 }
         }
 
-        // 🗑️ SAFE DELETE
+        // ðŸ—‘ï¸ SAFE DELETE
         async safeDelete(url, data = {}) {
                 try {
                         const response = await axios.delete(`${Config.backendurl}${url}`, { data });
@@ -80,7 +80,7 @@ export default class APIs {
                 }
         }
 
-        // 🔑 AUTH
+        // ðŸ”‘ AUTH
         async GetAccessToken(email) {
 
                 document.cookie.split(";").forEach(cookie => {
@@ -108,7 +108,7 @@ export default class APIs {
                                 Method.setPermissions(result.permission);
                         }
                         Notification.requestPermission().then(async (permission) => {
-                                console.log("🚀 ~ APIs.js:99 ~ APIs ~ Login ~ permission>>", permission);
+                                console.log("ðŸš€ ~ APIs.js:99 ~ APIs ~ Login ~ permission>>", permission);
 
                                 if (permission === "granted") {
                                         const token = await getFCMToken();
@@ -153,7 +153,7 @@ export default class APIs {
                 if (result.status === 200) {
                         Method.setCookie("admindata", result);
                         Notification.requestPermission().then(async (permission) => {
-                                console.log("🚀 ~ APIs.js:114 ~ APIs ~ GoogleLogin ~ permission>>", permission);
+                                console.log("ðŸš€ ~ APIs.js:114 ~ APIs ~ GoogleLogin ~ permission>>", permission);
                                 if (permission === "granted") {
                                         const token = await getFCMToken();
                                         await this.GetDeviceToken(token)
@@ -224,7 +224,7 @@ export default class APIs {
                 return this.safePost(`resolve/contactus`, { _id: id, remark: remark, iscompleted: 1 });
         }
 
-        // 🔔 NOTIFICATIONS
+        // ðŸ”” NOTIFICATIONS
         ListNotification(pageno = 1, pagelimit = 10, sort = { _id: -1 }, filter = {}, projection = {}, searchtext = "") {
                 return this.safePost(`notification/list`, {
                         paginationinfo: { pageno, pagelimit, sort, projection, filter },
@@ -236,7 +236,7 @@ export default class APIs {
                 return this.safePost(`notification/read`, payload);
         }
 
-        // 🍽️ Background
+        // ðŸ½ï¸ Background
         fetchBackground() {
                 return this.safePost(`background/list`, {});
         }
@@ -249,7 +249,7 @@ export default class APIs {
                 return this.safeDelete(`background/delete`, { _id: id });
         }
 
-        // 🍽️ MENUS
+        // ðŸ½ï¸ MENUS
         fetchMenus(pageno = 1, pagelimit = 20, sort = { _id: -1 }, filter = {}, projection = {}, searchtext = "") {
                 return this.safePost(`menu/list`, {
                         paginationinfo: { pageno, pagelimit, sort, projection, filter },
@@ -265,7 +265,7 @@ export default class APIs {
                 return this.safeDelete(`menu/remove`, { _id: id });
         }
 
-        // 🍛 FOOD ITEMS
+        // ðŸ› FOOD ITEMS
         fetchFoodItems(pageno = 1, pagelimit = 20, sort = { number: 1 }, filter = {}, projection = {}, searchtext = "") {
                 return this.safePost(`fooditems/list`, {
                         paginationinfo: { pageno, pagelimit, sort, projection, filter },
@@ -281,7 +281,7 @@ export default class APIs {
                 return this.safeDelete(`fooditems/remove`, { _id: id });
         }
 
-        // 🗂️ CATEGORY
+        // ðŸ—‚ï¸ CATEGORY
         fetchCategory(pageno = 1, pagelimit = 20, sort = { number: 1 }, filter = {}, projection = {}, searchtext = "") {
                 return this.safePost(`category/list`, {
                         paginationinfo: { pageno, pagelimit, sort, projection, filter },
@@ -297,7 +297,7 @@ export default class APIs {
                 return this.safeDelete(`category/remove`, { _id: id });
         }
 
-        // 🪑 TABLES
+        // ðŸª‘ TABLES
         fetchTables(pageno = 1, pagelimit = 20, sort = { number: 1 }, filter = {}, projection = {}, searchtext = "") {
                 return this.safePost(`tables/list`, {
                         paginationinfo: { pageno, pagelimit, sort, projection, filter },
@@ -313,7 +313,7 @@ export default class APIs {
                 return this.safeDelete(`table/remove`, { _id: id });
         }
 
-        // 👤 CUSTOMER
+        // ðŸ‘¤ CUSTOMER
         fetchCustomerDetails(pageno = 1, pagelimit = 20, sort = { number: 1 }, filter = {}, projection = {}, searchtext = "") {
                 return this.safePost(`customer/list`, {
                         paginationinfo: { pageno, pagelimit, sort, projection, filter },
@@ -321,7 +321,7 @@ export default class APIs {
                 });
         }
 
-        // 👤 EMPLOYEE USER ROLES
+        // ðŸ‘¤ EMPLOYEE USER ROLES
 
         fetchUserRoles(pageno = 1, pagelimit = 20, sort = { number: 1 }, filter = {}, projection = {}, searchtext = "") {
                 return this.safePost(`userroles/list`, {
@@ -342,7 +342,7 @@ export default class APIs {
                 return this.safeDelete(`userroles/delete`, { _id: id });
         }
 
-        // 👤 EMPLOYEES
+        // ðŸ‘¤ EMPLOYEES
         fetchEmployees(pageno = 1, pagelimit = 20, sort = { number: 1 }, filter = {}, projection = {}, searchtext = "") {
                 return this.safePost(`employee/list`, {
                         paginationinfo: { pageno, pagelimit, sort, projection, filter },
@@ -350,7 +350,7 @@ export default class APIs {
                 });
         }
 
-        // 🔐 PERMISSIONS
+        // ðŸ” PERMISSIONS
         ListPermissions(payload) {
                 return this.safePost(`permissions/list`, payload);
         }
@@ -387,7 +387,7 @@ export default class APIs {
                 return this.safePost("emp/2fa/disable", { code });
         }
 
-        // 💰 PAYMENTS
+        // ðŸ’° PAYMENTS
         ListPendingPayments(pageno = 1, pagelimit = 20, sort = { number: 1 }, filter = {}, projection = {}, searchtext = "") {
                 return this.safePost(`list/orders`, {
                         paginationinfo: { pageno, pagelimit, sort, projection, filter },
@@ -399,7 +399,7 @@ export default class APIs {
                 return this.safePost(`admin/payments/received`, { _id: orderId, customerid, url, status: 2 });
         }
 
-        // 🔐 OTP
+        // ðŸ” OTP
         SendOTP(email) {
                 return this.safePost(`admin/send/otp`, { email });
         }
@@ -417,5 +417,43 @@ export default class APIs {
                         paginationinfo: { pageno, pagelimit, sort, projection, filter },
                         searchtext
                 });
+        }
+
+        fetchShiftTimes(pageno = 1, pagelimit = 50, sort = { _id: -1 }, filter = {}, projection = {}, searchtext = "") {
+                return this.safePost(`shift/time/list`, {
+                        paginationinfo: { pageno, pagelimit, sort, projection, filter },
+                        searchtext
+                });
+        }
+
+        CreateShiftTime(payload) {
+                return this.safePost(`shift/time/add`, payload);
+        }
+
+        UpdateShiftTime(payload) {
+                return this.safePost(`shift/time/update`, payload);
+        }
+
+        RemoveShiftTime(id) {
+                return this.safePost(`shift/time/delete`, { _id: id });
+        }
+
+        fetchShiftAssigns(pageno = 1, pagelimit = 50, sort = { _id: -1 }, filter = {}, projection = {}, searchtext = "") {
+                return this.safePost(`shift/assign/list`, {
+                        paginationinfo: { pageno, pagelimit, sort, projection, filter },
+                        searchtext
+                });
+        }
+
+        CreateShiftAssign(payload) {
+                return this.safePost(`shift/assign/add`, payload);
+        }
+
+        UpdateShiftAssign(payload) {
+                return this.safePost(`shift/assign/update`, payload);
+        }
+
+        RemoveShiftAssign(id) {
+                return this.safePost(`shift/assign/delete`, { _id: id });
         }
 }

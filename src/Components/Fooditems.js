@@ -53,7 +53,23 @@ function Fooditems() {
                 open: false,
                 item: null,
                 position: "bottom-right",
+                isClosing: false
         });
+
+        const closeActionMenu = () => {
+                setActionMenu((prev) => {
+                        if (!prev.open) return prev;
+                        setTimeout(() => {
+                                setActionMenu((current) => {
+                                        if (current.isClosing) {
+                                                return { open: false, item: null, position: "bottom-right", isClosing: false };
+                                        }
+                                        return current;
+                                });
+                        }, 160);
+                        return { ...prev, isClosing: true };
+                });
+        };
 
         // refs
         const actionMenuRef = useRef(null);
@@ -134,7 +150,7 @@ function Fooditems() {
         useEffect(() => {
                 const handleClickOutside = (e) => {
                         if (actionMenuRef.current && !actionMenuRef.current.contains(e.target)) {
-                                setActionMenu({ open: false, item: null, position: "bottom-right" });
+                                closeActionMenu();
                         }
                 };
 
@@ -438,16 +454,23 @@ function Fooditems() {
         }, [sortBy, sortOrder, searchText]);
 
         const handleSort = (field) => {
-                let newOrder = -1;
+                let newOrder = 1;
                 let newSortBy = field;
 
                 if (sortBy === field) {
-                        newOrder = sortOrder === 1 ? -1 : 1;
+                        if (sortOrder === 1) {
+                                newOrder = -1;
+                        } else if (sortOrder === -1) {
+                                newOrder = 0;
+                                newSortBy = "";
+                        }
                 }
 
                 setSortBy(newSortBy);
                 setSortOrder(newOrder);
-                fetchFoodItems(1, true, { [newSortBy]: newOrder }, filters, searchText);
+                
+                const sortPayload = newOrder === 0 ? {} : { [newSortBy]: newOrder };
+                fetchFoodItems(1, true, sortPayload, filters, searchText);
         }
 
         const tableRows = useMemo(() => {
@@ -455,7 +478,7 @@ function Fooditems() {
                         <tr key={item._id}>
                                 <td className="common-table-td" style={{ position: "relative" }}>
                                         <button
-                                                className="actionbtn"
+                                                className="actionbtn" onMouseDown={(e) => e.stopPropagation()}
                                                 onClick={(e) => {
                                                         if (!canAnyAction) return;
                                                         openActionMenu(e, item);
@@ -467,12 +490,12 @@ function Fooditems() {
                                                 </span>
                                         </button>
 
-                                        {actionMenu.open && actionMenu.item?._id === item._id && (
-                                                <div ref={actionMenuRef} className={`action-menu ${actionMenu.position}`}>
+                                        {(actionMenu.open || actionMenu.isClosing) && actionMenu.item?._id === item._id && (
+                                                <div ref={actionMenuRef} className={`action-menu ${actionMenu.position} ${actionMenu.isClosing ? 'closing' : ''}`}>
                                                         {canUpdate && (
                                                                 <p className="action-menu-item" onClick={() => {
                                                                         handleEdit(item);
-                                                                        setActionMenu({ open: false, item: null, position: "bottom-right" });
+                                                                        closeActionMenu();
                                                                 }}>
                                                                         <span className="material-symbols-outlined fs-15 ml-10">edit</span> Edit
                                                                 </p>
@@ -480,7 +503,7 @@ function Fooditems() {
 
                                                         <p className="action-menu-item" onClick={() => {
                                                                 openFoodModal(item);
-                                                                setActionMenu({ open: false, item: null, position: "bottom-right" });
+                                                                closeActionMenu();
                                                         }}>
                                                                 <span className="material-symbols-outlined fs-15 ml-10">visibility</span> View Details
                                                         </p>
@@ -489,7 +512,7 @@ function Fooditems() {
                                                                 <p className="action-menu-item" onClick={() => {
                                                                         setDeleteId(item._id);
                                                                         setModalVisible(true);
-                                                                        setActionMenu({ open: false, item: null, position: "bottom-right" });
+                                                                        closeActionMenu();
                                                                 }}>
                                                                         <span className="material-symbols-outlined fs-15 ml-10">delete</span> Delete
                                                                 </p>
@@ -629,24 +652,24 @@ function Fooditems() {
                                                                         <tr>
                                                                                 <th className="common-table-th">Action</th>
                                                                                 <th className="common-table-th clickable" onClick={() => handleSort("name")}>
-                                                                                        <div className="th-content">Food <span className="material-symbols-outlined main-color fs-20 pointer rotate-90" onClick={() => handleSort("name")}>{Config.icons["sort"]}</span></div>
+                                                                                        <div className="th-content">Food <span className={Method.getSortIconClass("name", sortBy, sortOrder)} onClick={() => handleSort("name")}>{Method.getSortIcon("name", sortBy, sortOrder)}</span></div>
                                                                                 </th>
 
                                                                                 <th className="common-table-th clickable" onClick={() => handleSort("category")}>
-                                                                                        <div className="th-content">Category <span className="material-symbols-outlined main-color fs-20 pointer rotate-90" onClick={() => handleSort("category")}>{Config.icons["sort"]}</span></div>
+                                                                                        <div className="th-content">Category <span className={Method.getSortIconClass("category", sortBy, sortOrder)} onClick={() => handleSort("category")}>{Method.getSortIcon("category", sortBy, sortOrder)}</span></div>
                                                                                 </th>
 
                                                                                 {/* <th className="common-table-th">
-                                                                                        <div className="th-content">Description <span className="material-symbols-outlined main-color fs-20 pointer rotate-90" onClick={() => handleSort("description")}>{Config.icons["sort"]}</span></div>
+                                                                                        <div className="th-content">Description <span className={Method.getSortIconClass("description", sortBy, sortOrder)} onClick={() => handleSort("description")}>{Method.getSortIcon("description", sortBy, sortOrder)}</span></div>
                                                                                 </th> */}
 
                                                                                 <th className="common-table-th clickable" onClick={() => handleSort("price")}>
-                                                                                        <div className="th-content">Price (₹) <span className="material-symbols-outlined main-color fs-20 pointer rotate-90" onClick={() => handleSort("price")}>{Config.icons["sort"]}</span></div>
+                                                                                        <div className="th-content">Price (₹) <span className={Method.getSortIconClass("price", sortBy, sortOrder)} onClick={() => handleSort("price")}>{Method.getSortIcon("price", sortBy, sortOrder)}</span></div>
                                                                                 </th>
 
                                                                                 <th className="common-table-th">Image</th>
                                                                                 <th className="common-table-th" onClick={() => handleSort("isactive")}>
-                                                                                        <div className="th-content">Status<span className="material-symbols-outlined main-color fs-20 pointer rotate-90" onClick={() => handleSort("isactive")}>{Config.icons["sort"]}</span></div>
+                                                                                        <div className="th-content">Status<span className={Method.getSortIconClass("isactive", sortBy, sortOrder)} onClick={() => handleSort("isactive")}>{Method.getSortIcon("isactive", sortBy, sortOrder)}</span></div>
                                                                                 </th>
                                                                         </tr>
                                                                 </thead>
@@ -919,7 +942,7 @@ function Fooditems() {
 
                                 {/* Delete Modal */}
                                 {modalVisible && (
-                                        <div className="modal-overlay">
+                                        <div className={`modal-overlay ${isAnimatingAlertOut ? "fade-out" : ""}`}>
                                                 <div
                                                         className={`modal-content-select width-40 alert-modal ${isAnimatingAlertOut ? "fade-out" : ""
                                                                 }`}
@@ -964,7 +987,7 @@ function Fooditems() {
 
                                 {/* Food Modal */}
                                 {showFoodModal && selectedFood && (
-                                        <div className="modal-overlay user-not-select">
+                                        <div className={`modal-overlay user-not-select ${isAnimatingFoodOut ? "fade-out" : ""}`}>
                                                 <div className={`modal-content-select width-40 order-modal ${isAnimatingFoodOut ? "fade-out" : ""}`}>
                                                         <button className="sidebar-close-btn user-not-select" onClick={closeFoodModal}>
                                                                 <span className="material-symbols-outlined fs-20">close</span>
