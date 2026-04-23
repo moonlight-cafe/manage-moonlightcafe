@@ -20,7 +20,23 @@ function CustomerDetails() {
                 open: false,
                 customer: null,
                 position: "bottom-right",
+                isClosing: false
         });
+
+        const closeActionMenu = () => {
+                setActionMenu((prev) => {
+                        if (!prev.open) return prev;
+                        setTimeout(() => {
+                                setActionMenu((current) => {
+                                        if (current.isClosing) {
+                                                return { open: false, customer: null, position: "bottom-right", isClosing: false };
+                                        }
+                                        return current;
+                                });
+                        }, 160);
+                        return { ...prev, isClosing: true };
+                });
+        };
 
         const actionMenuRef = useRef(null);
 
@@ -33,11 +49,18 @@ function CustomerDetails() {
         };
 
         const handleSort = (key) => {
-                setSort((prev) => ({
-                        key,
-                        order: prev.key === key ? prev.order * -1 : 1
-                }));
-                fetchCustomerDetails(1, true, { [key]: sort.order });
+                setSort((prev) => {
+                        let newOrder = 1;
+                        let newKey = key;
+                        if (prev.key === key) {
+                                if (prev.order === 1) newOrder = -1;
+                                else if (prev.order === -1) {
+                                        newOrder = 0;
+                                        newKey = "";
+                                }
+                        }
+                        return { key: newKey, order: newOrder };
+                });
         };
 
         useEffect(() => {
@@ -47,7 +70,7 @@ function CustomerDetails() {
         useEffect(() => {
                 const handleClickOutside = (e) => {
                         if (actionMenuRef.current && !actionMenuRef.current.contains(e.target)) {
-                                setActionMenu({ open: false, customer: null, position: "bottom-right" });
+                                closeActionMenu();
                         }
                 };
 
@@ -122,10 +145,23 @@ function CustomerDetails() {
                 const position = Method.getActionMenuPosition(e.currentTarget);
 
                 setActionMenu((prev) => {
-                        const isSame = prev.open && prev.customer?._id === customer?._id;
-                        return isSame
-                                ? { open: false, customer: null, position: "bottom-right" }
-                                : { open: true, customer, position };
+                        const isSame = (prev.open || prev.isClosing) && prev.customer?._id === customer?._id;
+                        if (isSame) {
+                                if (!prev.isClosing) {
+                                        setTimeout(() => {
+                                                setActionMenu((current) => {
+                                                        if (current.isClosing) {
+                                                                return { open: false, customer: null, position: "bottom-right", isClosing: false };
+                                                        }
+                                                        return current;
+                                                });
+                                        }, 160);
+                                        return { ...prev, isClosing: true };
+                                }
+                                return prev;
+                        } else {
+                                return { open: true, customer: customer, position, isClosing: false };
+                        }
                 });
         };
 
@@ -159,16 +195,16 @@ function CustomerDetails() {
                                                                         <tr>
                                                                                 <th className="common-table-th">Action</th>
                                                                                 <th className="common-table-th">
-                                                                                        <div className="th-content">ID <span className="material-symbols-outlined main-color fs-20 pointer rotate-90" onClick={() => handleSort("uniqueid")}>{Config.icons["sort"]}</span></div>
+                                                                                        <div className="th-content">ID <span className={Method.getSortIconClass("uniqueid", sort.key, sort.order)} onClick={() => handleSort("uniqueid")}>{Method.getSortIcon("uniqueid", sort.key, sort.order)}</span></div>
                                                                                 </th>
                                                                                 <th className="common-table-th">
-                                                                                        <div className="th-content">Name <span className="material-symbols-outlined main-color fs-20 pointer rotate-90" onClick={() => handleSort("name")}>{Config.icons["sort"]}</span></div>
+                                                                                        <div className="th-content">Name <span className={Method.getSortIconClass("name", sort.key, sort.order)} onClick={() => handleSort("name")}>{Method.getSortIcon("name", sort.key, sort.order)}</span></div>
                                                                                 </th>
                                                                                 <th className="common-table-th">
-                                                                                        <div className="th-content">Number <span className="material-symbols-outlined main-color fs-20 pointer rotate-90" onClick={() => handleSort("number")}>{Config.icons["sort"]}</span></div>
+                                                                                        <div className="th-content">Number <span className={Method.getSortIconClass("number", sort.key, sort.order)} onClick={() => handleSort("number")}>{Method.getSortIcon("number", sort.key, sort.order)}</span></div>
                                                                                 </th>
                                                                                 <th className="common-table-th">
-                                                                                        <div className="th-content">Email <span className="material-symbols-outlined main-color fs-20 pointer rotate-90" onClick={() => handleSort("email")}>{Config.icons["sort"]}</span></div>
+                                                                                        <div className="th-content">Email <span className={Method.getSortIconClass("email", sort.key, sort.order)} onClick={() => handleSort("email")}>{Method.getSortIcon("email", sort.key, sort.order)}</span></div>
                                                                                 </th>
                                                                         </tr>
                                                                 </thead>
@@ -184,7 +220,7 @@ function CustomerDetails() {
                                                                                 details.map((data) => (
                                                                                         <tr key={data._id}>
                                                                                                 <td className="common-table-td" style={{ position: "relative" }}>
-                                                                                                        <button className="actionbtn" onClick={(e) => openActionMenu(e, data)} >
+                                                                                                        <button className="actionbtn" onMouseDown={(e) => e.stopPropagation()} onClick={(e) => openActionMenu(e, data)} >
                                                                                                                 <span className="material-symbols-outlined white fs-20">
                                                                                                                         more_vert
                                                                                                                 </span>
@@ -192,17 +228,17 @@ function CustomerDetails() {
 
                                                                                                         {actionMenu.open &&
                                                                                                                 actionMenu.customer?._id === data._id && (
-                                                                                                                        <div ref={actionMenuRef} className={`action-menu ${actionMenu.position}`} >
+                                                                                                                        <div ref={actionMenuRef} className={`action-menu ${actionMenu.position} ${actionMenu.isClosing ? 'closing' : ''}`} >
                                                                                                                                 <p className="action-menu-item" onClick={() => {
                                                                                                                                         OrderHistory(data);
-                                                                                                                                        setActionMenu({ open: false, customer: null, position: "bottom-right" });
+                                                                                                                                        closeActionMenu();
                                                                                                                                 }}>
                                                                                                                                         <span className="material-symbols-outlined fs-15 ml-10">open_in_new</span> View Orders
                                                                                                                                 </p>
 
                                                                                                                                 <p className="action-menu-item" onClick={() => {
                                                                                                                                         console.log("View Details:", data);
-                                                                                                                                        setActionMenu({ open: false, customer: null, position: "bottom-right" });
+                                                                                                                                        closeActionMenu();
                                                                                                                                 }}>
                                                                                                                                         <span className="material-symbols-outlined fs-15 ml-10">visibility</span> View Details
                                                                                                                                 </p>

@@ -39,7 +39,23 @@ function Employees() {
                 open: false,
                 employee: null,
                 position: "bottom-right",
+                isClosing: false
         });
+
+        const closeActionMenu = () => {
+                setActionMenu((prev) => {
+                        if (!prev.open) return prev;
+                        setTimeout(() => {
+                                setActionMenu((current) => {
+                                        if (current.isClosing) {
+                                                return { open: false, employee: null, position: "bottom-right", isClosing: false };
+                                        }
+                                        return current;
+                                });
+                        }, 160);
+                        return { ...prev, isClosing: true };
+                });
+        };
 
         const actionMenuRef = useRef(null);
 
@@ -56,7 +72,7 @@ function Employees() {
         useEffect(() => {
                 const handleClickOutside = (e) => {
                         if (actionMenuRef.current && !actionMenuRef.current.contains(e.target)) {
-                                setActionMenu({ open: false, employee: null, position: "bottom-right" });
+                                closeActionMenu();
                         }
                 };
 
@@ -154,16 +170,23 @@ function Employees() {
         };
 
         const handleSort = (field) => {
-                let newOrder = -1;
+                let newOrder = 1;
                 let newSortBy = field;
 
                 if (sortBy === field) {
-                        newOrder = sortOrder === 1 ? -1 : 1;
+                        if (sortOrder === 1) {
+                                newOrder = -1;
+                        } else if (sortOrder === -1) {
+                                newOrder = 0;
+                                newSortBy = "";
+                        }
                 }
 
                 setSortBy(newSortBy);
                 setSortOrder(newOrder);
-                fetchEmployees(1, true, { [newSortBy]: newOrder }, {}, {}, searchText);
+                
+                const sortPayload = newOrder === 0 ? {} : { [newSortBy]: newOrder };
+                fetchEmployees(1, true, sortPayload, {}, {}, searchText);
         };
 
         // Infinite scroll
@@ -311,10 +334,23 @@ function Employees() {
                 const position = Method.getActionMenuPosition(e.currentTarget);
 
                 setActionMenu((prev) => {
-                        const isSame = prev.open && prev.employee?._id === employee?._id;
-                        return isSame
-                                ? { open: false, employee: null, position: "bottom-right" }
-                                : { open: true, employee, position };
+                        const isSame = (prev.open || prev.isClosing) && prev.employee?._id === employee?._id;
+                        if (isSame) {
+                                if (!prev.isClosing) {
+                                        setTimeout(() => {
+                                                setActionMenu((current) => {
+                                                        if (current.isClosing) {
+                                                                return { open: false, employee: null, position: "bottom-right", isClosing: false };
+                                                        }
+                                                        return current;
+                                                });
+                                        }, 160);
+                                        return { ...prev, isClosing: true };
+                                }
+                                return prev;
+                        } else {
+                                return { open: true, employee: employee, position, isClosing: false };
+                        }
                 });
         };
 
@@ -387,7 +423,7 @@ function Employees() {
                                                                                         <tr key={employee._id}>
                                                                                                 <td className="common-table-td" style={{ position: "relative" }}>
                                                                                                         <button
-                                                                                                                className="actionbtn"
+                                                                                                                className="actionbtn" onMouseDown={(e) => e.stopPropagation()}
                                                                                                                 onClick={(e) => {
                                                                                                                         if (!canAnyAction) return;
                                                                                                                         openActionMenu(e, employee);
@@ -401,18 +437,18 @@ function Employees() {
 
                                                                                                         {actionMenu.open &&
                                                                                                                 actionMenu.employee?._id === employee._id && (
-                                                                                                                        <div ref={actionMenuRef} className={`action-menu ${actionMenu.position}`} >
+                                                                                                                        <div ref={actionMenuRef} className={`action-menu ${actionMenu.position} ${actionMenu.isClosing ? 'closing' : ''}`} >
                                                                                                                                 {canUpdate && (
                                                                                                                                         <p className="action-menu-item" onClick={() => {
                                                                                                                                                 handleEdit(employee);
-                                                                                                                                                setActionMenu({ open: false, employee: null, position: "bottom-right" });
+                                                                                                                                                closeActionMenu();
                                                                                                                                         }}>
                                                                                                                                                 <span className="material-symbols-outlined fs-15 ml-10">edit</span> Edit
                                                                                                                                         </p>
                                                                                                                                 )}
 
                                                                                                                                 <p className="action-menu-item" onClick={() => {
-                                                                                                                                        setActionMenu({ open: false, employee: null, position: "bottom-right" });
+                                                                                                                                        closeActionMenu();
                                                                                                                                 }}>
                                                                                                                                         <span className="material-symbols-outlined fs-15 ml-10">visibility</span> View Details
                                                                                                                                 </p>

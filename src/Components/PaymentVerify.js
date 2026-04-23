@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import './PaymentVerify.css';
+import './OrderHistory.css';
 import { Navbar, Method, API, Config } from "../config/Init.js"
 
 const PaymentVerify = () => {

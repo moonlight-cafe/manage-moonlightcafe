@@ -12,6 +12,8 @@ const NotFoundPage = lazy(() => import('./Components/NotFoundPage.js'));
 const Menu = lazy(() => import('./Components/Menu.js'));
 const Table = lazy(() => import('./Components/Table.js'));
 const Permissions = lazy(() => import('./Components/Permissions.js'));
+const ShiftTime = lazy(() => import('./Components/ShiftTime.js'));
+const ShiftAssign = lazy(() => import('./Components/ShiftAssign.js'));
 const Userrole = lazy(() => import('./Components/Userrole.js'));
 const Employee = lazy(() => import('./Components/Employee.js'));
 const Fooditems = lazy(() => import('./Components/Fooditems.js'));
@@ -101,6 +103,8 @@ function App() {
           <Route path="/verify/otp" element={<VerifyOTP />} />
           <Route path="/verify/2fa" element={<Verify2FA />} />
           <Route path="/reset/password" element={<ResetPassword />} />
+          <Route path="/shift/time" element={<ProtectedRoute><ShiftTime /></ProtectedRoute>} />
+          <Route path="/shift/assign" element={<ProtectedRoute><ShiftAssign /></ProtectedRoute>} />
           <Route path="/verify_payment" element={<ProtectedRoute><PaymentVerify /></ProtectedRoute>} />
           <Route path="*" element={<NotFoundPage />} />
         </Routes>

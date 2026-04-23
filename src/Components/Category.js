@@ -31,7 +31,23 @@ function CategoryMaster() {
                 open: false,
                 category: null,
                 position: "bottom-right",
+                isClosing: false
         });
+
+        const closeActionMenu = () => {
+                setActionMenu((prev) => {
+                        if (!prev.open) return prev;
+                        setTimeout(() => {
+                                setActionMenu((current) => {
+                                        if (current.isClosing) {
+                                                return { open: false, category: null, position: "bottom-right", isClosing: false };
+                                        }
+                                        return current;
+                                });
+                        }, 160);
+                        return { ...prev, isClosing: true };
+                });
+        };
 
         // Add ref to track if fetch is in progress
         const actionMenuRef = useRef(null);
@@ -54,7 +70,7 @@ function CategoryMaster() {
         useEffect(() => {
                 const handleClickOutside = (e) => {
                         if (actionMenuRef.current && !actionMenuRef.current.contains(e.target)) {
-                                setActionMenu({ open: false, category: null, position: "bottom-right" });
+                                closeActionMenu();
                         }
                 };
 
@@ -258,27 +274,47 @@ function CategoryMaster() {
         };
 
         const handleSort = (field) => {
-                let newOrder = -1;
+                let newOrder = 1;
                 let newSortBy = field;
 
                 if (sortBy === field) {
-                        newOrder = sortOrder === 1 ? -1 : 1;
+                        if (sortOrder === 1) {
+                                newOrder = -1;
+                        } else if (sortOrder === -1) {
+                                newOrder = 0;
+                                newSortBy = "";
+                        }
                 }
 
                 setSortBy(newSortBy);
                 setSortOrder(newOrder);
-                fetchCategories(1, true, { [newSortBy]: newOrder }, {}, {}, searchText);
+
+                const sortPayload = newOrder === 0 ? {} : { [newSortBy]: newOrder };
+                fetchCategories(1, true, sortPayload, {}, {}, searchText);
         }
 
         const openActionMenu = (e, category) => {
                 e.stopPropagation();
-                const position = Method.getActionMenuPosition(e.currentTarget);
+                const { position, style } = Method.getActionMenuPosition(e.currentTarget);
 
                 setActionMenu((prev) => {
-                        const isSame = prev.open && prev.category?._id === category?._id;
-                        return isSame
-                                ? { open: false, category: null, position: "bottom-right" }
-                                : { open: true, category, position };
+                        const isSame = (prev.open || prev.isClosing) && prev.category?._id === category?._id;
+                        if (isSame) {
+                                if (!prev.isClosing) {
+                                        setTimeout(() => {
+                                                setActionMenu((current) => {
+                                                        if (current.isClosing) {
+                                                                return { open: false, category: null, position: "bottom-right", style: {}, isClosing: false };
+                                                        }
+                                                        return current;
+                                                });
+                                        }, 160);
+                                        return { ...prev, isClosing: true };
+                                }
+                                return prev;
+                        } else {
+                                return { open: true, category: category, position, style, isClosing: false };
+                        }
                 });
         };
 
@@ -292,26 +328,10 @@ function CategoryMaster() {
                                                 <div className="common-tbl-right-section">
                                                         <div className="global-search-container">
                                                                 <span className="material-symbols-outlined search-icon">search</span>
-                                                                <input
-                                                                        type="text"
-                                                                        placeholder="Search"
-                                                                        className="search-input"
-                                                                        maxLength={50}
-                                                                        value={searchText}
-                                                                        onChange={(e) => setSearchText(e.target.value)}
-                                                                        onKeyDown={handleSearchKeyPress}
-                                                                />
+                                                                <input type="text" placeholder="Search" className="search-input" maxLength={50} value={searchText} onChange={(e) => setSearchText(e.target.value)} onKeyDown={handleSearchKeyPress} />
                                                         </div>
                                                         {canAdd && (
-                                                                <button
-                                                                        className="main-btn"
-                                                                        onClick={() => {
-                                                                                setIsSidebarOpen(true);
-                                                                        }}
-                                                                        disabled={loading}
-                                                                >
-                                                                        Add Category
-                                                                </button>
+                                                                <button className="main-btn" onClick={() => setIsSidebarOpen(true)} disabled={loading}>Add Category</button>
                                                         )}
                                                 </div>
                                         </div>
@@ -322,185 +342,71 @@ function CategoryMaster() {
                                                                 <thead>
                                                                         <tr>
                                                                                 <th className="common-table-th">Action</th>
-                                                                                <th className="common-table-th" onClick={() => handleSort("name")}>
-                                                                                        <div className="th-content">Category <span className="material-symbols-outlined main-color fs-20 pointer rotate-90" onClick={() => handleSort("name")}>{Config.icons["sort"]}</span></div>
-                                                                                </th>
-                                                                                <th className="common-table-th" onClick={() => handleSort("isactive")}>
-                                                                                        <div className="th-content">Status <span className="material-symbols-outlined main-color fs-20 pointer rotate-90" onClick={() => handleSort("isactive")}>{Config.icons["sort"]}</span></div>
-                                                                                </th>
+                                                                                <th className="common-table-th" onClick={() => handleSort("name")}><div className="th-content">Category <span className={Method.getSortIconClass("name", sortBy, sortOrder)}>{Method.getSortIcon("name", sortBy, sortOrder)}</span></div></th>
+                                                                                <th className="common-table-th" onClick={() => handleSort("isactive")}><div className="th-content">Status <span className={Method.getSortIconClass("isactive", sortBy, sortOrder)}>{Method.getSortIcon("isactive", sortBy, sortOrder)}</span></div></th>
                                                                         </tr>
                                                                 </thead>
                                                                 <tbody>
                                                                         {loading && categories.length === 0 ? (
-                                                                                <tr>
-                                                                                        <td className="common-table-td" colSpan="3" style={{ textAlign: "center", padding: "40px" }}>
-                                                                                                {/* Loading categories... */}
-                                                                                                {Method.showLoader()}
-                                                                                        </td>
-                                                                                </tr>
+                                                                                <tr><td className="common-table-td" colSpan="3" style={{ textAlign: "center", padding: "40px" }}>{Method.showLoader()}</td></tr>
                                                                         ) : categories.length > 0 ? (
                                                                                 categories.map((cat) => (
                                                                                         <tr key={cat._id}>
                                                                                                 <td className="common-table-td" style={{ position: "relative" }}>
-                                                                                                        <button
-                                                                                                                className="actionbtn"
-                                                                                                                onClick={(e) => {
-                                                                                                                        if (!canAnyAction) return;
-                                                                                                                        openActionMenu(e, cat);
-                                                                                                                }}
-                                                                                                                disabled={!canAnyAction}
-                                                                                                        >
-                                                                                                                <span className="material-symbols-outlined white fs-20">
-                                                                                                                        more_vert
-                                                                                                                </span>
+                                                                                                        <button className="actionbtn" onMouseDown={(e) => e.stopPropagation()} onClick={(e) => { if (!canAnyAction) return; openActionMenu(e, cat); }} disabled={!canAnyAction}>
+                                                                                                                <span className="material-symbols-outlined white fs-20">more_vert</span>
                                                                                                         </button>
-
-                                                                                                        {actionMenu.open && actionMenu.category?._id === cat._id && (
-                                                                                                                <div ref={actionMenuRef} className={`action-menu ${actionMenu.position}`}>
-                                                                                                                        {canUpdate && (
-                                                                                                                                <p className="action-menu-item" onClick={() => {
-                                                                                                                                        handleEdit(cat);
-                                                                                                                                        setActionMenu({ open: false, category: null, position: "bottom-right" });
-                                                                                                                                }}>
-                                                                                                                                        <span className="material-symbols-outlined fs-15 ml-10">edit</span> Edit
-                                                                                                                                </p>
-                                                                                                                        )}
-
-                                                                                                                        {canDelete && (
-                                                                                                                                <p className="action-menu-item" onClick={() => {
-                                                                                                                                        setDeleteId(cat._id);
-                                                                                                                                        setModalVisible(true);
-                                                                                                                                        setActionMenu({ open: false, category: null, position: "bottom-right" });
-                                                                                                                                }}>
-                                                                                                                                        <span className="material-symbols-outlined fs-15 ml-10">delete</span> Delete
-                                                                                                                                </p>
-                                                                                                                        )}
+                                                                                                        {(actionMenu.open || actionMenu.isClosing) && actionMenu.category?._id === cat._id && (
+                                                                                                                <div ref={actionMenuRef} className={`action-menu ${actionMenu.position} ${actionMenu.isClosing ? 'closing' : ''}`} style={actionMenu.style}>
+                                                                                                                        {canUpdate && (<p className="action-menu-item" onClick={() => { handleEdit(cat); closeActionMenu(); }}><span className="material-symbols-outlined fs-15 ml-10">edit</span> Edit</p>)}
+                                                                                                                        {canDelete && (<p className="action-menu-item" onClick={() => { setDeleteId(cat._id); setModalVisible(true); closeActionMenu(); }}><span className="material-symbols-outlined fs-15 ml-10">delete</span> Delete</p>)}
                                                                                                                 </div>
                                                                                                         )}
                                                                                                 </td>
                                                                                                 <td className="common-table-td">{cat.name}</td>
                                                                                                 <td className="common-table-td">
-                                                                                                        {Method.tooltip(
-                                                                                                                cat.isactive === 1 ? "Active" : "Inactive",
-                                                                                                                <input
-                                                                                                                        type="checkbox"
-                                                                                                                        checked={cat.isactive === 1}
-                                                                                                                        className={`chk-checkbox ${!canUpdate ? "chk-disabled" : ""}`}
-                                                                                                                        onChange={() => handleToggleStatus(cat._id, cat.isactive)}
-                                                                                                                />
-                                                                                                        )}
+                                                                                                        {Method.tooltip(cat.isactive === 1 ? "Active" : "Inactive", <input type="checkbox" checked={cat.isactive === 1} className={`chk-checkbox ${!canUpdate ? "chk-disabled" : ""}`} onChange={() => handleToggleStatus(cat._id, cat.isactive)} />)}
                                                                                                 </td>
                                                                                         </tr>
                                                                                 ))
                                                                         ) : (
-                                                                                <tr>
-                                                                                        <td className="common-table-td" colSpan="3" style={{ textAlign: "center", padding: "40px" }}>
-                                                                                                {/* No categories found */}
-                                                                                                {Method.noDataFound()}
-                                                                                        </td>
-                                                                                </tr>
+                                                                                <tr><td className="common-table-td" colSpan="3" style={{ textAlign: "center", padding: "40px" }}>{Method.noDataFound()}</td></tr>
                                                                         )}
                                                                 </tbody>
                                                         </table>
-                                                        {loading && categories.length > 0 && (
-                                                                <div style={{ textAlign: "center", padding: "20px" }}>
-                                                                        {/* Loading more... */}
-                                                                        {Method.showLoader()}
-                                                                </div>
-                                                        )}
+                                                        {loading && categories.length > 0 && <div style={{ textAlign: "center", padding: "20px" }}>{Method.showLoader()}</div>}
                                                 </div>
                                         </div>
                                 </div>
 
-                                {/* Sidebar for Add/Edit */}
-                                {isSidebarOpen && (
-                                        <div
-                                                className="sidebar-overlay"
-                                                onClick={() => {
-                                                        setIsSidebarOpen(false);
-                                                        setFormData({});
-                                                        setEditingId(null);
-                                                }}
-                                        ></div>
-                                )}
+                                {isSidebarOpen && <div className="sidebar-overlay" onClick={() => { setIsSidebarOpen(false); setFormData({}); setEditingId(null); }}></div>}
 
                                 <div className={`sidebar-panel ${isSidebarOpen ? "open" : ""}`}>
-                                        <button
-                                                className="sidebar-close-btn"
-                                                onClick={() => {
-                                                        setIsSidebarOpen(false);
-                                                        setFormData({});
-                                                        setEditingId(null);
-                                                }}
-                                        >
+                                        <button className="sidebar-close-btn" onClick={() => { setIsSidebarOpen(false); setFormData({}); setEditingId(null); }}>
                                                 <span className="material-symbols-outlined fs-20">close</span>
                                         </button>
-
                                         <h3>{editingId ? "Update Category" : "Add Category"}</h3>
-
                                         <form onSubmit={handleSubmit} className="sidebar-form">
                                                 <div className="form-group">
-                                                        <label className="form-group-label">
-                                                                Category <span className="required">*</span>
-                                                        </label>
-                                                        <input
-                                                                type="text"
-                                                                name="name"
-                                                                className="common-input-text"
-                                                                value={formData.name || ""}
-                                                                onChange={handleChange}
-                                                                required
-                                                        />
+                                                        <label className="form-group-label">Category <span className="required">*</span></label>
+                                                        <input type="text" name="name" className="common-input-text" value={formData.name || ""} onChange={handleChange} required />
                                                 </div>
-
                                                 <div className="form-footer">
-                                                        <button type="submit" disabled={loading} className="main-btn">
-                                                                {editingId ? "Update" : "Save"}
-                                                        </button>
+                                                        <button type="submit" disabled={loading} className="main-btn">{editingId ? "Update" : "Save"}</button>
                                                 </div>
                                         </form>
                                 </div>
 
-                                {/* Delete Modal */}
                                 {modalVisible && (
-                                        <div className="modal-overlay">
-                                                <div
-                                                        className={`modal-content-select width-40 alert-modal ${isAnimatingAlertOut ? "fade-out" : ""
-                                                                }`}
-                                                >
-                                                        {/* Icon */}
-                                                        <span className="material-symbols-outlined modal-icon required fs-50">
-                                                                delete
-                                                        </span>
-
-                                                        {/* Title */}
+                                        <div className={`modal-overlay ${isAnimatingAlertOut ? "fade-out" : ""}`}>
+                                                <div className={`modal-content-select width-40 alert-modal ${isAnimatingAlertOut ? "fade-out" : ""}`}>
+                                                        <span className="material-symbols-outlined modal-icon required fs-50">delete</span>
                                                         <h3 className="modal-title fs-25 required">Are you sure?</h3>
-
-                                                        {/* Message */}
-                                                        <p className="modal-description fs-20 required">
-                                                                Do you really want to delete this item?
-                                                        </p>
-
+                                                        <p className="modal-description fs-20 required">Do you really want to delete this item?</p>
                                                         <p className="note required fs-20">This action cannot be undone.</p>
-
-                                                        {/* Buttons */}
                                                         <div>
-                                                                <button
-                                                                        className="main-cancle-btn mr-20"
-                                                                        onClick={() => {
-                                                                                if (deleteId) handleDelete(deleteId);
-                                                                                closeAlertModal()
-                                                                        }}
-                                                                >
-                                                                        Yes, Delete
-                                                                </button>
-
-                                                                <button
-                                                                        className="main-btn ml-20"
-                                                                        onClick={closeAlertModal}
-                                                                >
-                                                                        Cancel
-                                                                </button>
+                                                                <button className="main-cancle-btn mr-20" onClick={() => { if (deleteId) handleDelete(deleteId); closeAlertModal(); }}>Yes, Delete</button>
+                                                                <button className="main-btn ml-20" onClick={closeAlertModal}>Cancel</button>
                                                         </div>
                                                 </div>
                                         </div>

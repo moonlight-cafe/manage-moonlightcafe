@@ -33,7 +33,23 @@ function TableManager() {
                 open: false,
                 table: null,
                 position: "bottom-right",
+                isClosing: false
         });
+
+        const closeActionMenu = () => {
+                setActionMenu((prev) => {
+                        if (!prev.open) return prev;
+                        setTimeout(() => {
+                                setActionMenu((current) => {
+                                        if (current.isClosing) {
+                                                return { open: false, table: null, position: "bottom-right", isClosing: false };
+                                        }
+                                        return current;
+                                });
+                        }, 160);
+                        return { ...prev, isClosing: true };
+                });
+        };
 
         // Add ref to track if fetch is in progress
         const actionMenuRef = useRef(null);
@@ -57,7 +73,7 @@ function TableManager() {
         useEffect(() => {
                 const handleClickOutside = (e) => {
                         if (actionMenuRef.current && !actionMenuRef.current.contains(e.target)) {
-                                setActionMenu({ open: false, table: null, position: "bottom-right" });
+                                closeActionMenu();
                         }
                 };
 
@@ -112,16 +128,23 @@ function TableManager() {
         };
 
         const handleSort = (field) => {
-                let newOrder = -1;
+                let newOrder = 1;
                 let newSortBy = field;
 
                 if (sortBy === field) {
-                        newOrder = sortOrder === 1 ? -1 : 1;
+                        if (sortOrder === 1) {
+                                newOrder = -1;
+                        } else if (sortOrder === -1) {
+                                newOrder = 0;
+                                newSortBy = "";
+                        }
                 }
 
                 setSortBy(newSortBy);
                 setSortOrder(newOrder);
-                fetchTables(1, true, { [newSortBy]: newOrder }, {}, {}, searchText);
+
+                const sortPayload = newOrder === 0 ? {} : { [newSortBy]: newOrder };
+                fetchTables(1, true, sortPayload, {}, {}, searchText);
         }
 
         // Infinite scroll with debounce
@@ -281,10 +304,23 @@ function TableManager() {
                 const position = Method.getActionMenuPosition(e.currentTarget);
 
                 setActionMenu((prev) => {
-                        const isSame = prev.open && prev.table?._id === table?._id;
-                        return isSame
-                                ? { open: false, table: null, position: "bottom-right" }
-                                : { open: true, table, position };
+                        const isSame = (prev.open || prev.isClosing) && prev.table?._id === table?._id;
+                        if (isSame) {
+                                if (!prev.isClosing) {
+                                        setTimeout(() => {
+                                                setActionMenu((current) => {
+                                                        if (current.isClosing) {
+                                                                return { open: false, table: null, position: "bottom-right", isClosing: false };
+                                                        }
+                                                        return current;
+                                                });
+                                        }, 160);
+                                        return { ...prev, isClosing: true };
+                                }
+                                return prev;
+                        } else {
+                                return { open: true, table: table, position, isClosing: false };
+                        }
                 });
         };
 
@@ -329,10 +365,10 @@ function TableManager() {
                                                                         <tr>
                                                                                 <th className="common-table-th">Actions</th>
                                                                                 <th className="common-table-th" onClick={() => handleSort("number")}>
-                                                                                        <div className="th-content">Table Number<span className="material-symbols-outlined main-color fs-20 pointer rotate-90" onClick={() => handleSort("number")}>{Config.icons["sort"]}</span></div>
+                                                                                        <div className="th-content">Table Number<span className={Method.getSortIconClass("number", sortBy, sortOrder)} onClick={() => handleSort("number")}>{Method.getSortIcon("number", sortBy, sortOrder)}</span></div>
                                                                                 </th>
                                                                                 <th className="common-table-th" onClick={() => handleSort("isavailable")}>
-                                                                                        <div className="th-content">Status <span className="material-symbols-outlined main-color fs-20 pointer rotate-90" onClick={() => handleSort("isavailable")}>{Config.icons["sort"]}</span></div>
+                                                                                        <div className="th-content">Status <span className={Method.getSortIconClass("isavailable", sortBy, sortOrder)} onClick={() => handleSort("isavailable")}>{Method.getSortIcon("isavailable", sortBy, sortOrder)}</span></div>
                                                                                 </th>
                                                                         </tr>
                                                                 </thead>
@@ -349,7 +385,7 @@ function TableManager() {
                                                                                         <tr key={table._id}>
                                                                                                 <td className="common-table-td" style={{ position: "relative" }}>
                                                                                                         <button
-                                                                                                                className="actionbtn"
+                                                                                                                className="actionbtn" onMouseDown={(e) => e.stopPropagation()}
                                                                                                                 onClick={(e) => {
                                                                                                                         if (!canAnyAction) return;
                                                                                                                         openActionMenu(e, table);
@@ -361,12 +397,12 @@ function TableManager() {
                                                                                                                 </span>
                                                                                                         </button>
 
-                                                                                                        {actionMenu.open && actionMenu.table?._id === table._id && (
-                                                                                                                <div ref={actionMenuRef} className={`action-menu ${actionMenu.position}`}>
+                                                                                                        {(actionMenu.open || actionMenu.isClosing) && actionMenu.table?._id === table._id && (
+                                                                                                                <div ref={actionMenuRef} className={`action-menu ${actionMenu.position} ${actionMenu.isClosing ? 'closing' : ''}`}>
                                                                                                                         {canUpdate && (
                                                                                                                                 <p className="action-menu-item" onClick={() => {
                                                                                                                                         handleEdit(table);
-                                                                                                                                        setActionMenu({ open: false, table: null, position: "bottom-right" });
+                                                                                                                                        closeActionMenu();
                                                                                                                                 }}>
                                                                                                                                         <span className="material-symbols-outlined fs-15 ml-10">edit</span> Edit
                                                                                                                                 </p>
@@ -376,7 +412,7 @@ function TableManager() {
                                                                                                                                 <p className="action-menu-item" onClick={() => {
                                                                                                                                         setDeleteId(table._id);
                                                                                                                                         setModalVisible(true);
-                                                                                                                                        setActionMenu({ open: false, table: null, position: "bottom-right" });
+                                                                                                                                        closeActionMenu();
                                                                                                                                 }}>
                                                                                                                                         <span className="material-symbols-outlined fs-15 ml-10">delete</span> Delete
                                                                                                                                 </p>
@@ -467,10 +503,9 @@ function TableManager() {
                                 </div>
 
                                 {modalVisible && (
-                                        <div className="modal-overlay">
+                                        <div className={`modal-overlay ${isAnimatingAlertOut ? "fade-out" : ""}`}>
                                                 <div
-                                                        className={`modal-content-select width-40 alert-modal ${isAnimatingAlertOut ? "fade-out" : ""
-                                                                }`}
+                                                        className={`modal-content-select width-40 alert-modal ${isAnimatingAlertOut ? "fade-out" : ""}`}
                                                 >
                                                         <span className="material-symbols-outlined modal-icon required fs-50">
                                                                 delete

@@ -142,11 +142,18 @@ function ReviewManager() {
         };
 
         const handleSort = (key) => {
-                setSort((prev) => ({
-                        key,
-                        order: prev.key === key ? prev.order * -1 : 1
-                }));
-                listRating(1, true, { [key]: sort.order });
+                setSort((prev) => {
+                        let newOrder = 1;
+                        let newKey = key;
+                        if (prev.key === key) {
+                                if (prev.order === 1) newOrder = -1;
+                                else if (prev.order === -1) {
+                                        newOrder = 0;
+                                        newKey = "";
+                                }
+                        }
+                        return { key: newKey, order: newOrder };
+                });
         };
 
         // Infinite scroll with debounce
@@ -273,23 +280,23 @@ function ReviewManager() {
                                                                 <thead>
                                                                         <tr>
                                                                                 <th className="common-table-th">
-                                                                                        <div className="th-content">Customer<span className="material-symbols-outlined main-color fs-20 pointer rotate-90" onClick={() => handleSort("customername")}>{Config.icons["sort"]}</span></div>
+                                                                                        <div className="th-content">Customer<span className={Method.getSortIconClass("customername", sort.key, sort.order)} onClick={() => handleSort("customername")}>{Method.getSortIcon("customername", sort.key, sort.order)}</span></div>
                                                                                 </th>
 
                                                                                 <th className="common-table-th">
-                                                                                        <div className="th-content">Rating<span className="material-symbols-outlined main-color fs-20 pointer rotate-90" onClick={() => handleSort("rating")}>{Config.icons["sort"]}</span></div>
+                                                                                        <div className="th-content">Rating<span className={Method.getSortIconClass("rating", sort.key, sort.order)} onClick={() => handleSort("rating")}>{Method.getSortIcon("rating", sort.key, sort.order)}</span></div>
                                                                                 </th>
 
                                                                                 <th className="common-table-th">
-                                                                                        <div className="th-content">Review<span className="material-symbols-outlined main-color fs-20 pointer rotate-90" onClick={() => handleSort("review")}>{Config.icons["sort"]}</span></div>
+                                                                                        <div className="th-content">Review<span className={Method.getSortIconClass("review", sort.key, sort.order)} onClick={() => handleSort("review")}>{Method.getSortIcon("review", sort.key, sort.order)}</span></div>
                                                                                 </th>
 
                                                                                 <th className="common-table-th">
-                                                                                        <div className="th-content">Service<span className="material-symbols-outlined main-color fs-20 pointer rotate-90" onClick={() => handleSort("service")}>{Config.icons["sort"]}</span></div>
+                                                                                        <div className="th-content">Service<span className={Method.getSortIconClass("service", sort.key, sort.order)} onClick={() => handleSort("service")}>{Method.getSortIcon("service", sort.key, sort.order)}</span></div>
                                                                                 </th>
 
                                                                                 <th className="common-table-th">
-                                                                                        <div className="th-content">Date<span className="material-symbols-outlined main-color fs-20 pointer rotate-90" onClick={() => handleSort("createdAt")}>{Config.icons["sort"]}</span></div>
+                                                                                        <div className="th-content">Date<span className={Method.getSortIconClass("createdAt", sort.key, sort.order)} onClick={() => handleSort("createdAt")}>{Method.getSortIcon("createdAt", sort.key, sort.order)}</span></div>
                                                                                 </th>
 
                                                                                 <th className="common-table-th">

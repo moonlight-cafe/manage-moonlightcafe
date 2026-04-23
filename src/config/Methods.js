@@ -6,6 +6,9 @@ import React from "react";
 
 const Config = new _Config();
 const cafeurl = Config.moonlightcafelogo;
+const HOUR_OPTIONS = Array.from({ length: 12 }, (_, index) => String(index + 1).padStart(2, "0"));
+const MINUTE_OPTIONS = Array.from({ length: 60 }, (_, index) => String(index).padStart(2, "0"));
+const PERIOD_OPTIONS = ["AM", "PM"];
 class Methods {
         isPermissionBypassPath(pathname = "") {
                 const bypassPaths = new Set([
@@ -204,11 +207,11 @@ class Methods {
 
         getActionMenuPosition(target, options = {}) {
                 const rect = target?.getBoundingClientRect ? target.getBoundingClientRect() : target;
-                if (!rect) return "bottom-right";
+                if (!rect) return { position: "bottom-right", style: {} };
 
                 const {
                         menuWidth = 180,
-                        menuHeight = 140,
+                        menuHeight = 100,
                 } = options;
 
                 const viewportWidth = window.innerWidth || 0;
@@ -222,7 +225,19 @@ class Methods {
                 const vertical = spaceBelow >= menuHeight || spaceBelow >= spaceAbove ? "bottom" : "top";
                 const horizontal = spaceRight >= menuWidth || spaceRight >= spaceLeft ? "right" : "left";
 
-                return `${vertical}-${horizontal}`;
+                const style = {};
+                if (vertical === "bottom") {
+                        style.top = `${rect.bottom}px`;
+                } else {
+                        style.bottom = `${viewportHeight - rect.top}px`;
+                }
+                if (horizontal === "right") {
+                        style.right = `${viewportWidth - rect.right}px`;
+                } else {
+                        style.left = `${rect.left}px`;
+                }
+
+                return { position: `${vertical}-${horizontal}`, style };
         }
 
 
@@ -673,6 +688,194 @@ class Methods {
                         </div>
                 );
         };
+
+        getTimeParts(value = "") {
+                const normalizedValue = String(value || "").trim();
+
+                if (!normalizedValue) {
+                        return { hour: "09", minute: "00", period: "AM", hasValue: false };
+                }
+
+                const twelveHourMatch = normalizedValue.match(/^(\d{1,2}):(\d{2})\s*(AM|PM)$/i);
+                if (twelveHourMatch) {
+                        const hourNumber = Number(twelveHourMatch[1]) % 12 || 12;
+                        return {
+                                hour: String(hourNumber).padStart(2, "0"),
+                                minute: twelveHourMatch[2],
+                                period: twelveHourMatch[3].toUpperCase(),
+                                hasValue: true,
+                        };
+                }
+
+                const twentyFourHourMatch = normalizedValue.match(/^(\d{1,2}):(\d{2})$/);
+                if (twentyFourHourMatch) {
+                        const rawHour = Number(twentyFourHourMatch[1]);
+                        const minute = twentyFourHourMatch[2];
+                        const period = rawHour >= 12 ? "PM" : "AM";
+                        const hourNumber = rawHour % 12 || 12;
+                        return {
+                                hour: String(hourNumber).padStart(2, "0"),
+                                minute,
+                                period,
+                                hasValue: true,
+                        };
+                }
+
+                return { hour: "09", minute: "00", period: "AM", hasValue: false };
+        }
+
+        formatTimeLabel(value = "", placeholder = "Select Time") {
+                const { hour, minute, period, hasValue } = this.getTimeParts(value);
+                return hasValue ? `${hour}:${minute} ${period}` : placeholder;
+        }
+
+        toTwentyFourHourValue({ hour, minute, period }) {
+                let hourNumber = Number(hour) % 12;
+                if (period === "PM") {
+                        hourNumber += 12;
+                }
+                return `${String(hourNumber).padStart(2, "0")}:${minute}`;
+        }
+
+        renderTimePickerField = ({
+                fieldName,
+                label,
+                pickerRef,
+                placeholder,
+                formData,
+                activeTimePicker,
+                setActiveTimePicker,
+                updateTimePart,
+                resetTimeField,
+        }) => {
+                const isOpen = activeTimePicker === fieldName;
+                const selectedParts = this.getTimeParts(formData?.[fieldName]);
+
+                return (
+                        <div className="form-group">
+                                <label className="form-group-label">{label} <span className="required">*</span></label>
+                                <div className="time-picker-field" ref={pickerRef}>
+                                        <div
+                                                className="custom-date-container time-picker-trigger"
+                                                role="button"
+                                                tabIndex={0}
+                                                onClick={() => setActiveTimePicker((prev) => (prev === fieldName ? null : fieldName))}
+                                                onKeyDown={(e) => {
+                                                        if (e.key === "Enter" || e.key === " ") {
+                                                                e.preventDefault();
+                                                                setActiveTimePicker((prev) => (prev === fieldName ? null : fieldName));
+                                                        }
+                                                }}
+                                        >
+                                                <span className={`date-text time-picker-text ${formData?.[fieldName] ? "" : "time-picker-placeholder"}`}>
+                                                        {this.formatTimeLabel(formData?.[fieldName], placeholder)}
+                                                </span>
+                                                <span className="material-symbols-outlined calendar-icon">
+                                                        schedule
+                                                </span>
+                                        </div>
+
+                                        {isOpen && (
+                                                <div className="calendar-popover time-picker-popover">
+                                                        <div className="time-picker-panel">
+                                                                <div className="time-picker-preview time-picker-preview-compact">
+                                                                        <div>
+                                                                                <div className="time-picker-preview-label">{label}</div>
+                                                                                <div className="time-picker-preview-value">
+                                                                                        {this.formatTimeLabel(formData?.[fieldName], placeholder)}
+                                                                                </div>
+                                                                        </div>
+                                                                        <span className="material-symbols-outlined main-color fs-20">schedule</span>
+                                                                </div>
+
+                                                                <div className="time-picker-grid">
+                                                                        <div className="time-picker-column">
+                                                                                <div className="time-picker-column-title">Hour</div>
+                                                                                <div className="time-picker-options">
+                                                                                        {HOUR_OPTIONS.map((hour) => (
+                                                                                                <button
+                                                                                                        key={`${fieldName}-hour-${hour}`}
+                                                                                                        type="button"
+                                                                                                        className={`time-picker-option ${selectedParts.hour === hour ? "active" : ""}`}
+                                                                                                        onClick={() => updateTimePart(fieldName, "hour", hour)}
+                                                                                                >
+                                                                                                        {hour}
+                                                                                                </button>
+                                                                                        ))}
+                                                                                </div>
+                                                                        </div>
+
+                                                                        <div className="time-picker-column">
+                                                                                <div className="time-picker-column-title">Minute</div>
+                                                                                <div className="time-picker-options">
+                                                                                        {MINUTE_OPTIONS.map((minute) => (
+                                                                                                <button
+                                                                                                        key={`${fieldName}-minute-${minute}`}
+                                                                                                        type="button"
+                                                                                                        className={`time-picker-option ${selectedParts.minute === minute ? "active" : ""}`}
+                                                                                                        onClick={() => updateTimePart(fieldName, "minute", minute)}
+                                                                                                >
+                                                                                                        {minute}
+                                                                                                </button>
+                                                                                        ))}
+                                                                                </div>
+                                                                        </div>
+
+                                                                        <div className="time-picker-column time-picker-period-column">
+                                                                                <div className="time-picker-column-title">Period</div>
+                                                                                <div className="time-picker-options time-picker-period-options">
+                                                                                        {PERIOD_OPTIONS.map((period) => (
+                                                                                                <button
+                                                                                                        key={`${fieldName}-period-${period}`}
+                                                                                                        type="button"
+                                                                                                        className={`time-picker-option ${selectedParts.period === period ? "active" : ""}`}
+                                                                                                        onClick={() => updateTimePart(fieldName, "period", period)}
+                                                                                                >
+                                                                                                        {period}
+                                                                                                </button>
+                                                                                        ))}
+                                                                                </div>
+                                                                        </div>
+                                                                </div>
+
+                                                                <div className="time-picker-footer">
+                                                                        <button
+                                                                                type="button"
+                                                                                className="main-cancle-btn time-picker-action-btn"
+                                                                                onClick={() => resetTimeField(fieldName)}
+                                                                        >
+                                                                                Reset
+                                                                        </button>
+                                                                        <button
+                                                                                type="button"
+                                                                                className="main-btn time-picker-action-btn"
+                                                                                onClick={() => setActiveTimePicker(null)}
+                                                                        >
+                                                                                Done
+                                                                        </button>
+                                                                </div>
+                                                        </div>
+                                                </div>
+                                        )}
+                                </div>
+                        </div>
+                );
+        };
+
+        getSortIcon(field, currentSortBy, currentSortOrder) {
+                if (currentSortBy === field) {
+                        if (currentSortOrder === 1) return Config.icons.sort_asc || "arrow_upward";
+                        if (currentSortOrder === -1) return Config.icons.sort_desc || "arrow_downward";
+                }
+                return Config.icons.sort || "sync_alt";
+        }
+
+        getSortIconClass(field, currentSortBy, currentSortOrder, baseClass = "material-symbols-outlined main-color fs-20 pointer") {
+                if (currentSortBy === field && (currentSortOrder === 1 || currentSortOrder === -1)) {
+                        return baseClass;
+                }
+                return `${baseClass} rotate-90`;
+        }
 
 }
 

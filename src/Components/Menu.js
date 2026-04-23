@@ -35,7 +35,23 @@ function MenuManager() {
                 open: false,
                 employee: null,
                 position: "bottom-right",
+                isClosing: false
         });
+
+        const closeActionMenu = () => {
+                setActionMenu((prev) => {
+                        if (!prev.open) return prev;
+                        setTimeout(() => {
+                                setActionMenu((current) => {
+                                        if (current.isClosing) {
+                                                return { open: false, employee: null, position: "bottom-right", isClosing: false };
+                                        }
+                                        return current;
+                                });
+                        }, 160);
+                        return { ...prev, isClosing: true };
+                });
+        };
 
         // Add ref to track if fetch is in progress
         const actionMenuRef = useRef(null);
@@ -94,7 +110,7 @@ function MenuManager() {
         useEffect(() => {
                 const handleClickOutside = (e) => {
                         if (actionMenuRef.current && !actionMenuRef.current.contains(e.target)) {
-                                setActionMenu({ open: false, employee: null, position: "bottom-right" });
+                                closeActionMenu();
                         }
                 };
 
@@ -123,7 +139,8 @@ function MenuManager() {
         }, [isSidebarOpen, showPopup]);
 
         useEffect(() => {
-                fetchMenus(1, true, { [sort.key]: sort.order });
+                const sortPayload = sort.order === 0 ? {} : { [sort.key]: sort.order };
+                fetchMenus(1, true, sortPayload);
         }, [sort]);
 
         const handleSearchKeyPress = (e) => {
@@ -133,11 +150,18 @@ function MenuManager() {
         };
 
         const handleSort = (key) => {
-                setSort((prev) => ({
-                        key,
-                        order: prev.key === key ? prev.order * -1 : 1
-                }));
-                fetchMenus(1, true, { [key]: sort.order });
+                setSort((prev) => {
+                        let newOrder = 1;
+                        let newKey = key;
+                        if (prev.key === key) {
+                                if (prev.order === 1) newOrder = -1;
+                                else if (prev.order === -1) {
+                                        newOrder = 0;
+                                        newKey = "";
+                                }
+                        }
+                        return { key: newKey, order: newOrder };
+                });
         };
 
         // Infinite scroll with debounce
@@ -303,10 +327,23 @@ function MenuManager() {
                 const position = Method.getActionMenuPosition(e.currentTarget);
 
                 setActionMenu((prev) => {
-                        const isSame = prev.open && prev.employee?._id === menu?._id;
-                        return isSame
-                                ? { open: false, employee: null, position: "bottom-right" }
-                                : { open: true, employee: menu, position };
+                        const isSame = (prev.open || prev.isClosing) && prev.employee?._id === menu?._id;
+                        if (isSame) {
+                                if (!prev.isClosing) {
+                                        setTimeout(() => {
+                                                setActionMenu((current) => {
+                                                        if (current.isClosing) {
+                                                                return { open: false, employee: null, position: "bottom-right", isClosing: false };
+                                                        }
+                                                        return current;
+                                                });
+                                        }, 160);
+                                        return { ...prev, isClosing: true };
+                                }
+                                return prev;
+                        } else {
+                                return { open: true, employee: menu, position, isClosing: false };
+                        }
                 });
         };
 
@@ -349,19 +386,19 @@ function MenuManager() {
                                                                         <tr>
                                                                                 <th className="common-table-th">Action</th>
                                                                                 <th className="common-table-th">
-                                                                                        <div className="th-content">Menu <span className="material-symbols-outlined main-color fs-20 pointer rotate-90" onClick={() => handleSort("name")}>{Config.icons["sort"]}</span></div>
+                                                                                        <div className="th-content">Menu <span className={Method.getSortIconClass("name", sort.key, sort.order)} onClick={() => handleSort("name")}>{Method.getSortIcon("name", sort.key, sort.order)}</span></div>
                                                                                 </th>
 
                                                                                 <th className="common-table-th">
-                                                                                        <div className="th-content">Icon <span className="material-symbols-outlined main-color fs-20 pointer rotate-90" onClick={() => handleSort("icon")}>{Config.icons["sort"]}</span></div>
+                                                                                        <div className="th-content">Icon <span className={Method.getSortIconClass("icon", sort.key, sort.order)} onClick={() => handleSort("icon")}>{Method.getSortIcon("icon", sort.key, sort.order)}</span></div>
                                                                                 </th>
 
                                                                                 <th className="common-table-th">
-                                                                                        <div className="th-content">Display Order <span className="material-symbols-outlined main-color fs-20 pointer rotate-90" onClick={() => handleSort("displayorder")}>{Config.icons["sort"]}</span></div>
+                                                                                        <div className="th-content">Display Order <span className={Method.getSortIconClass("displayorder", sort.key, sort.order)} onClick={() => handleSort("displayorder")}>{Method.getSortIcon("displayorder", sort.key, sort.order)}</span></div>
                                                                                 </th>
 
                                                                                 <th className="common-table-th">
-                                                                                        <div className="th-content">Status <span className="material-symbols-outlined main-color fs-20 pointer rotate-90" onClick={() => handleSort("isactive")}>{Config.icons["sort"]}</span></div>
+                                                                                        <div className="th-content">Status <span className={Method.getSortIconClass("isactive", sort.key, sort.order)} onClick={() => handleSort("isactive")}>{Method.getSortIcon("isactive", sort.key, sort.order)}</span></div>
                                                                                 </th>
 
                                                                         </tr>
@@ -380,7 +417,7 @@ function MenuManager() {
                                                                                                 <tr key={menu._id}>
                                                                                                         <td className="common-table-td" style={{ position: "relative" }}>
                                                                                                                 <button
-                                                                                                                        className="actionbtn"
+                                                                                                                        className="actionbtn" onMouseDown={(e) => e.stopPropagation()}
                                                                                                                         onClick={(e) => {
                                                                                                                                 if (!canAnyAction) return;
                                                                                                                                 openActionMenu(e, menu);
@@ -394,11 +431,11 @@ function MenuManager() {
 
                                                                                                                 {actionMenu.open &&
                                                                                                                         actionMenu.employee?._id === menu._id && (
-                                                                                                                                <div ref={actionMenuRef} className={`action-menu ${actionMenu.position}`} >
+                                                                                                                                <div ref={actionMenuRef} className={`action-menu ${actionMenu.position} ${actionMenu.isClosing ? 'closing' : ''}`} >
                                                                                                                                         {canUpdate && (
                                                                                                                                                 <p className="action-menu-item" onClick={() => {
                                                                                                                                                         handleEdit(menu);
-                                                                                                                                                        setActionMenu({ open: false, employee: null, position: "bottom-right" });
+                                                                                                                                                        closeActionMenu();
                                                                                                                                                 }}>
                                                                                                                                                         <span className="material-symbols-outlined fs-15 ml-10">edit</span> Edit
                                                                                                                                                 </p>
@@ -408,7 +445,7 @@ function MenuManager() {
                                                                                                                                                 <p className="action-menu-item" onClick={() => {
                                                                                                                                                         setDeleteId(menu._id);
                                                                                                                                                         setModalVisible(true);
-                                                                                                                                                        setActionMenu({ open: false, employee: null, position: "bottom-right" });
+                                                                                                                                                        closeActionMenu();
                                                                                                                                                 }}>
                                                                                                                                                         <span className="material-symbols-outlined fs-15 ml-10">delete</span> Delete
                                                                                                                                                 </p>

@@ -107,32 +107,6 @@
         font-size: 24px;
 }
 
-
-/* BUTTONS */
-.primary-btn {
-        background-color: #47d9a8;
-        color: #1e1e1e;
-        border: none;
-        border-radius: 8px;
-        padding: 14px 32px;
-        font-size: 16px;
-        font-weight: 600;
-        cursor: pointer;
-}
-
-.secondary-btn {
-        display: block;
-        background-color: #2a2a2a;
-        color: #47d9a8;
-        border: 2px solid #47d9a8;
-        border-radius: 8px;
-        padding: 12px 24px;
-        font-size: 15px;
-        font-weight: 600;
-        cursor: pointer;
-        margin-top: 12px;
-}
-
 /* RESPONSIVE */
 @media (max-width: 768px) {
         .profile-main {

@@ -82,13 +82,23 @@ export default function CustomerSupport() {
         };
 
         const handleSort = (field) => {
-                let newOrder = -1;
+                let newOrder = 1;
+                let newSortBy = field;
+
                 if (sortBy === field) {
-                        newOrder = sortOrder === 1 ? -1 : 1;
+                        if (sortOrder === 1) {
+                                newOrder = -1;
+                        } else if (sortOrder === -1) {
+                                newOrder = 0;
+                                newSortBy = "";
+                        }
                 }
-                setSortBy(field);
+
+                setSortBy(newSortBy);
                 setSortOrder(newOrder);
-                fetchdetails(1, true, { [field]: newOrder }, {}, {}, searchText);
+                
+                const sortPayload = newOrder === 0 ? {} : { [newSortBy]: newOrder };
+                fetchdetails(1, true, sortPayload);
         };
 
         const handleRefresh = () => {
