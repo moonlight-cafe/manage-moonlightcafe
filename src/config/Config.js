@@ -4,8 +4,8 @@ import MoonlightCafeLogo from "../assets/MoonlightCafeLogo-47d9a8.png"
 import MoonlightCafeText from "../assets/MoonlightCafeText.png"
 class Config {
         constructor() {
-                this.backendurl = "http://192.168.1.2:8080/moonlightcafe/v1/";
-                // this.backendurl = "https://api-moonlightcafe.onrender.com/moonlightcafe/v1/";
+                // this.backendurl = "http://192.168.1.2:8080/moonlightcafe/v1/";
+                this.backendurl = "https://api-moonlightcafe.onrender.com/moonlightcafe/v1/";
                 this.accesskey = "Moonlight_Cafe_A4C9D2F1-5F21-A5E7-4C8B-C1D9B6F0A277"
                 this.issuer = "web"
                 this.upiId = "jainilam75-1@okhdfcbank"
