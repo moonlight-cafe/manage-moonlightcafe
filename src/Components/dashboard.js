@@ -8,12 +8,14 @@ import {
   Cell,
   Legend,
   Pie,
-  PieChart,
   ResponsiveContainer,
+  Sector,
   Tooltip,
   XAxis,
   YAxis,
 } from "recharts";
+import EChartPie from "../config/EChartPie";
+
 import { useNavigate } from "react-router-dom";
 import "./dashboard.css";
 import { API, Config, Method, Navbar } from "../config/Init.js";
@@ -121,6 +123,35 @@ const getDateRangeFromPreset = (value) => {
   return { from, to };
 };
 
+const renderActiveShape = (props) => {
+  const { cx, cy, innerRadius, outerRadius, startAngle, endAngle, fill } = props;
+  return (
+    <g>
+      <Sector
+        cx={cx}
+        cy={cy}
+        innerRadius={innerRadius}
+        outerRadius={outerRadius + 8}
+        startAngle={startAngle}
+        endAngle={endAngle}
+        fill={fill}
+        stroke="#11211c"
+        strokeWidth={3}
+        style={{ filter: "drop-shadow(0 6px 14px rgba(0,0,0,0.8))" }}
+      />
+    </g>
+  );
+};
+
+const renderPieLabel = (props) => {
+  const { x, y, cx, name } = props;
+  return (
+    <text x={x} y={y} fill="#bdeedd" textAnchor={x > cx ? "start" : "end"} dominantBaseline="central" fontSize={12}>
+      {name}
+    </text>
+  );
+};
+
 const Dashboard = () => {
   const navigate = useNavigate();
   const rangeRef = useRef(null);
@@ -132,6 +163,8 @@ const Dashboard = () => {
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState("");
   const [totalDocs, setTotalDocs] = useState(0);
+  const [activeOrderStatusIdx, setActiveOrderStatusIdx] = useState(-1);
+  const [activePaymentIdx, setActivePaymentIdx] = useState(-1);
 
   const fetchAllOrders = useCallback(async () => {
     const pageLimit = 200;
@@ -482,24 +515,7 @@ const Dashboard = () => {
             <div className="mc-grid-2">
               <div className="mc-chart-panel">
                 <div className="mc-panel-title">Order Status</div>
-                <ResponsiveContainer width="100%" height={260}>
-                  <PieChart>
-                    <Pie
-                      data={orderStatusData}
-                      dataKey="value"
-                      nameKey="name"
-                      cx="50%"
-                      cy="50%"
-                      outerRadius={85}
-                      label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
-                    >
-                      <Cell fill="#47d9a8" />
-                      <Cell fill="#f59e0b" />
-                      <Cell fill="#ef4444" />
-                    </Pie>
-                    <Tooltip />
-                  </PieChart>
-                </ResponsiveContainer>
+                <EChartPie data={orderStatusData} />
               </div>
 
               <div className="mc-chart-panel">
@@ -519,24 +535,7 @@ const Dashboard = () => {
             <div className="mc-grid-2">
               <div className="mc-chart-panel">
                 <div className="mc-panel-title">Payment Method Mix</div>
-                <ResponsiveContainer width="100%" height={260}>
-                  <PieChart>
-                    <Pie
-                      data={paymentData}
-                      dataKey="value"
-                      nameKey="name"
-                      cx="50%"
-                      cy="50%"
-                      outerRadius={85}
-                      label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
-                    >
-                      <Cell fill="#47d9a8" />
-                      <Cell fill="#0ea5e9" />
-                      <Cell fill="#94a3b8" />
-                    </Pie>
-                    <Tooltip />
-                  </PieChart>
-                </ResponsiveContainer>
+                <EChartPie data={paymentData} />
               </div>
 
               <div className="mc-chart-panel">

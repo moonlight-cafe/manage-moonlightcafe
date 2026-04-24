@@ -90,9 +90,8 @@ export default function AdminLogin() {
                         }
 
                 } catch (error) {
-                        showPopup(
-                                error?.response?.data?.message || "Server error or network issue"
-                        );
+                        console.error("Login Error:", error);
+                        showPopup(error?.response?.data?.message || "Server connection failed. Please check your internet or try again.");
                 } finally {
                         setLoading(false);
                 }

@@ -5,7 +5,8 @@ import { getFCMToken } from "./firebase.js";
 const canRequestNotificationPermission = () =>
         typeof window !== "undefined" &&
         "Notification" in window &&
-        typeof Notification.requestPermission === "function";
+        typeof Notification.requestPermission === "function" &&
+        !/iPhone|iPad|iPod/.test(navigator.userAgent);
 
 axios.interceptors.request.use(
         (config) => {
@@ -30,7 +31,7 @@ axios.interceptors.request.use(
         (error) => Promise.reject(error)
 );
 
-// ðŸ”„ Auto Update Cookie + Logout on 401
+// 🔄 Auto Update Cookie + Logout on 401
 axios.interceptors.response.use(
         (response) => response,
         (error) => {
@@ -50,7 +51,7 @@ axios.interceptors.response.use(
 
 export default class APIs {
 
-        // ðŸ”’ SAFE POST
+        // 🔒 SAFE POST
         async safePost(url, body = {}, headers = {}) {
                 try {
                         const response = await axios.post(`${Config.backendurl}${url}`, body, { headers });
@@ -69,7 +70,7 @@ export default class APIs {
                 }
         }
 
-        // ðŸ—‘ï¸ SAFE DELETE
+        // 🗑️ SAFE DELETE
         async safeDelete(url, data = {}) {
                 try {
                         const response = await axios.delete(`${Config.backendurl}${url}`, { data });
@@ -80,7 +81,7 @@ export default class APIs {
                 }
         }
 
-        // ðŸ”‘ AUTH
+        // 🔑 AUTH
         async GetAccessToken(email) {
 
                 document.cookie.split(";").forEach(cookie => {
@@ -107,15 +108,10 @@ export default class APIs {
                         if (result.permission) {
                                 Method.setPermissions(result.permission);
                         }
-                        Notification.requestPermission().then(async (permission) => {
-                                console.log("ðŸš€ ~ APIs.js:99 ~ APIs ~ Login ~ permission>>", permission);
 
-                                if (permission === "granted") {
-                                        const token = await getFCMToken();
-                                        await this.GetDeviceToken(token)
-                                        console.log("FCM Token:", token);
-                                }
-                        });
+                        // 🔥 Execute notification setup without blocking login success
+                        this.handleNotificationsSafe();
+
                         await this.LoginData(result.data)
                 }
                 return result;
@@ -128,16 +124,34 @@ export default class APIs {
                         if (result.permission) {
                                 Method.setPermissions(result.permission);
                         }
-                        Notification.requestPermission().then(async (permission) => {
-                                if (permission === "granted") {
-                                        const token = await getFCMToken();
-                                        await this.GetDeviceToken(token);
-                                }
-                        });
+                        
+                        // 🔥 Non-blocking notification setup
+                        this.handleNotificationsSafe();
+
                         await this.LoginData(result.data);
                 }
                 return result;
         }
+
+        handleNotificationsSafe = async () => {
+                try {
+                        if (!canRequestNotificationPermission()) {
+                                console.log("Notifications not supported or blocked on this device (iOS/Safari)");
+                                return;
+                        }
+
+                        const permission = await Notification.requestPermission();
+                        if (permission === "granted") {
+                                const token = await getFCMToken();
+                                if (token) {
+                                        await this.GetDeviceToken(token);
+                                        console.log("FCM Token registered successfully:", token);
+                                }
+                        }
+                } catch (e) {
+                        console.warn("Notification/FCM setup failed safely:", e);
+                }
+        };
 
         async LoginData(userdata) {
                 const result = await this.safePost("logindata", {});
@@ -152,14 +166,10 @@ export default class APIs {
                 const result = await this.safePost("employee/google/login", { name, email, number });
                 if (result.status === 200) {
                         Method.setCookie("admindata", result);
-                        Notification.requestPermission().then(async (permission) => {
-                                console.log("ðŸš€ ~ APIs.js:114 ~ APIs ~ GoogleLogin ~ permission>>", permission);
-                                if (permission === "granted") {
-                                        const token = await getFCMToken();
-                                        await this.GetDeviceToken(token)
-                                        console.log("FCM Token:", token);
-                                }
-                        });
+                        
+                        // 🔥 Non-blocking notification setup
+                        this.handleNotificationsSafe();
+
                         await this.LoginData(result.data)
                 }
                 return result;
