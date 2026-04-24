@@ -875,7 +875,7 @@
                 /* Default width when expanded */
                 left: -260px;
                 /* Hide completely offscreen by default */
-                z-index: 10;
+                z-index: 99999999999;
         }
 
         /* Mobile specifically ignores hover expansion, only uses .mobile-open */
@@ -921,6 +921,7 @@
 @media (max-width: 480px) {
         .navbar {
                 left: -100%;
+                z-index: 99999999999;
         }
 
         /* On extreme mobile screens, force full width */
