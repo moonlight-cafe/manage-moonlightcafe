@@ -62,10 +62,11 @@ function CategoryMaster() {
         };
 
         useEffect(() => {
-                if (searchText.trim() === "") {
-                        fetchCategories(1, true, { [sortBy]: sortOrder }, {}, {}, "");
-                }
-        }, [searchText]);
+		const timer = setTimeout(() => {
+			fetchCategories(1, true, { [sortBy]: sortOrder }, {}, {}, searchText.trim());
+		}, 500);
+		return () => clearTimeout(timer);
+	}, [searchText]);
 
         useEffect(() => {
                 const handleClickOutside = (e) => {
@@ -77,6 +78,11 @@ function CategoryMaster() {
                 document.addEventListener("mousedown", handleClickOutside);
                 return () => document.removeEventListener("mousedown", handleClickOutside);
         }, []);
+
+        const handleRefresh = () => {
+                setSearchText("");
+                fetchCategories(1, true, { [sortBy]: sortOrder }, {}, {}, "");
+        };
 
         const fetchCategories = async (pageno = 1, reset = false, sort = { [sortBy]: sortOrder }, filter = {}, projection = {}, searchtext = "") => {
                 // Prevent duplicate calls
@@ -330,11 +336,36 @@ function CategoryMaster() {
                                                                 <span className="material-symbols-outlined search-icon">search</span>
                                                                 <input type="text" placeholder="Search" className="search-input" maxLength={50} value={searchText} onChange={(e) => setSearchText(e.target.value)} onKeyDown={handleSearchKeyPress} />
                                                         </div>
+                                                        {Method.tooltip(
+                                                                "Refresh",
+                                                                <button className="filter-btn" onClick={handleRefresh}>
+                                                                        <span
+                                                                                className="material-symbols-outlined main-color fs-25 m-3 rotate-45" style={{ animation: loading ? "spin 1s linear infinite" : "none" }}
+                                                                                
+                                                                        >
+                                                                                cached
+                                                                        </span>
+                                                                </button>
+                                                        )}
                                                         {canAdd && (
-                                                                <button className="main-btn" onClick={() => setIsSidebarOpen(true)} disabled={loading}>Add Category</button>
+                                                                <button className="main-btn desktop-add-btn" onClick={() => setIsSidebarOpen(true)} disabled={loading}>Add Category</button>
                                                         )}
                                                 </div>
                                         </div>
+
+                                        {/* Mobile Floating Action Button (FAB) */}
+                                        {canAdd && (
+                                                <div className="mobile-fab-container">
+                                                        <button
+                                                                className="mobile-fab-btn"
+                                                                onClick={() => setIsSidebarOpen(true)}
+                                                                disabled={loading}
+                                                                title="Add Category"
+                                                        >
+                                                                <span className="material-symbols-outlined">add</span>
+                                                        </button>
+                                                </div>
+                                        )}
 
                                         <div className="common-table-container">
                                                 <div className="common-table-wrapper">

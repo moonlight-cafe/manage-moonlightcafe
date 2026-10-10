@@ -112,9 +112,15 @@ function ShiftAssignMaster() {
         };
 
         useEffect(() => {
-                fetchDropdownData();
-                fetchShiftAssigns(1, true, searchText);
-        }, [searchText]);
+		fetchDropdownData();
+	}, []);
+
+	useEffect(() => {
+		const timer = setTimeout(() => {
+			fetchShiftAssigns(1, true, searchText.trim());
+		}, 500);
+		return () => clearTimeout(timer);
+	}, [searchText]);
 
         const handleSubmit = async (e) => {
                 e.preventDefault();
@@ -200,12 +206,30 @@ function ShiftAssignMaster() {
                                                                 <input type="text" placeholder="Search" className="search-input" value={searchText} onChange={(e) => setSearchText(e.target.value)} />
                                                         </div>
                                                         {canAdd && (
-                                                                <button className="main-btn" onClick={() => { setIsSidebarOpen(true); setFormData({}); setEditingId(null); }}>
+                                                                <button className="main-btn desktop-add-btn" onClick={() => { setIsSidebarOpen(true); setFormData({}); setEditingId(null); }}>
                                                                         Assign Shift
                                                                 </button>
                                                         )}
                                                 </div>
                                         </div>
+
+                                        {/* Mobile Floating Action Button (FAB) */}
+                                        {canAdd && (
+                                                <div className="mobile-fab-container">
+                                                        <button
+                                                                className="mobile-fab-btn"
+                                                                onClick={() => {
+                                                                        setIsSidebarOpen(true);
+                                                                        setFormData({});
+                                                                        setEditingId(null);
+                                                                }}
+                                                                disabled={loading}
+                                                                title="Assign Shift"
+                                                        >
+                                                                <span className="material-symbols-outlined">add</span>
+                                                        </button>
+                                                </div>
+                                        )}
 
                                         <div className="common-table-container">
                                                 <div className="common-table-wrapper">

@@ -3,7 +3,8 @@ import { BrowserRouter as Router, Route, Routes, Navigate, useLocation } from 'r
 import './App.css';
 import './Common.css';
 import BackgroundManager from './Components/BackgroundManager.js';
-import { Method } from "./config/Init.js";
+import { Method, API } from "./config/Init.js";
+import ServerUnreachablePopup from './Components/ServerUnreachablePopup.js';
 
 const Login = lazy(() => import('./Components/Login.js'));
 const Dashboard = lazy(() => import('./Components/dashboard.js'));
@@ -73,9 +74,31 @@ function App() {
     return () => window.removeEventListener("beforeunload", logoutOnClose);
   }, []);
 
+  useEffect(() => {
+    const initApp = async () => {
+      let bgimgs = [];
+      const status = Method.checkLoginStatus();
+      if (status && status.status === 200) {
+        const res = await API.LoginData();
+        if (res && res.bgimgs) {
+          bgimgs = res.bgimgs;
+        }
+      }
+      
+      if (bgimgs && Array.isArray(bgimgs)) {
+        bgimgs.forEach((imgUrl) => {
+          const img = new Image();
+          img.src = imgUrl;
+        });
+      }
+    };
+    initApp();
+  }, []);
+
   return (
     <Router>
       <BackgroundManager />
+      <ServerUnreachablePopup />
       <Suspense fallback={<AppLoader />}>
         <Routes>
           {/* HOME PAGE */}

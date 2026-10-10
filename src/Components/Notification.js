@@ -1,7 +1,9 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { Navbar, Method, API } from "../config/Init.js";
 
 export default function Notification() {
+        const navigate = useNavigate();
         const [notifications, setNotifications] = useState([]);
         const [searchText, setSearchText] = useState("");
         const [popup, setPopup] = useState({ message: "", type: "", visible: false });
@@ -109,7 +111,16 @@ export default function Notification() {
                 }
         };
 
-        const markSingleNotificationRead = async (notificationId) => {
+        const updateUnreadIconState = (hasUnread) => {
+                const admindata = Method.checkLoginStatus();
+                if (admindata && admindata.data) {
+                        admindata.data.hasUnreadNotifications = !!hasUnread;
+                        Method.setCookie("admindata", admindata.data);
+                }
+                window.dispatchEvent(new CustomEvent("unreadNotifUpdated", { detail: { hasUnread: !!hasUnread } }));
+        };
+
+        const markSingleNotificationRead = async (notificationId, clickaction, newTab = false) => {
                 if (!notificationId) return;
                 try {
                         const res = await API.ReadNotification({ _id: notificationId, allread: 0 });
@@ -119,7 +130,15 @@ export default function Notification() {
                                                 item._id === notificationId ? { ...item, read: 1 } : item
                                         )
                                 );
+                                updateUnreadIconState(res.hasUnreadNotifications);
                                 showPopup("Notification marked as read", "success");
+                                if (clickaction) {
+                                        if (newTab) {
+                                                window.open(clickaction, '_blank');
+                                        } else {
+                                                navigate(clickaction);
+                                        }
+                                }
                         } else {
                                 showPopup(res?.message || "Failed to update notification");
                         }
@@ -134,6 +153,7 @@ export default function Notification() {
                         const res = await API.ReadNotification({ allread: 1 });
                         if (res?.status === 200) {
                                 setNotifications((prev) => prev.map((item) => ({ ...item, read: 1 })));
+                                updateUnreadIconState(false);
                                 showPopup("All notifications marked as read", "success");
                         } else {
                                 showPopup(res?.message || "Failed to update notifications");
@@ -206,7 +226,7 @@ export default function Notification() {
                                                                                 </tr>
                                                                         ) : notifications.length > 0 ? (
                                                                                 notifications.map((item) => (
-                                                                                        <tr key={item._id}>
+                                                                                        <tr key={item._id} onClick={() => markSingleNotificationRead(item._id, item.clickaction)} style={{ cursor: 'pointer' }}>
                                                                                                 <td className="common-table-td">{getNotificationText(item)}</td>
                                                                                                 <td className="common-table-td">
                                                                                                         {item.read === 1 ? (
@@ -220,7 +240,7 @@ export default function Notification() {
                                                                                                         {item.read === 0 ? (
                                                                                                                 <button
                                                                                                                         className="actionbtn"
-                                                                                                                        onClick={() => markSingleNotificationRead(item._id)}
+                                                                                                                        onClick={(e) => { e.stopPropagation(); markSingleNotificationRead(item._id, item.clickaction); }}
                                                                                                                 >
                                                                                                                         <span className="material-symbols-outlined white fs-20">check</span>
                                                                                                                 </button>
@@ -229,6 +249,14 @@ export default function Notification() {
                                                                                                                         "Read",
                                                                                                                         <span className="material-symbols-outlined main-color fs-20">done_all</span>
                                                                                                                 )
+                                                                                                        )}
+                                                                                                        {Method.tooltip("View",
+                                                                                                                <button
+                                                                                                                        className="actionbtn"
+                                                                                                                        onClick={(e) => { e.stopPropagation(); markSingleNotificationRead(item._id, item.clickaction, true); }}
+                                                                                                                >
+                                                                                                                        <span className="material-symbols-outlined white fs-20">open_in_new</span>
+                                                                                                                </button>
                                                                                                         )}
                                                                                                 </td>
                                                                                         </tr>

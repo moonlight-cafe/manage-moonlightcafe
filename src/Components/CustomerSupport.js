@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useRef } from 'react';
-import './CustomerSupport.css'
-import { Navbar, Method, Config, API } from "../config/Init.js"
+import './CustomerSupport.css';
+import { Navbar, Method, Config, API } from "../config/Init.js";
+
 export default function CustomerSupport() {
         const [details, setDetails] = useState([]);
         const [searchText, setSearchText] = useState("");
@@ -31,9 +32,10 @@ export default function CustomerSupport() {
         };
 
         useEffect(() => {
-                if (searchText.trim() === "") {
-                        fetchdetails(1, true, { [sortBy]: sortOrder }, {}, {}, "");
-                }
+                const timer = setTimeout(() => {
+                        fetchdetails(1, true, { [sortBy]: sortOrder }, {}, {}, searchText.trim());
+                }, 500);
+                return () => clearTimeout(timer);
         }, [searchText]);
 
         const fetchdetails = async (
@@ -96,14 +98,16 @@ export default function CustomerSupport() {
 
                 setSortBy(newSortBy);
                 setSortOrder(newOrder);
-                
+
                 const sortPayload = newOrder === 0 ? {} : { [newSortBy]: newOrder };
-                fetchdetails(1, true, sortPayload);
+                fetchdetails(1, true, sortPayload, {}, {}, searchText.trim());
         };
 
         const handleRefresh = () => {
                 setSearchText("");
-                fetchdetails(1, true, "");
+                setSortBy("_id");
+                setSortOrder(-1);
+                fetchdetails(1, true, { _id: -1 }, {}, {}, "");
         };
 
         useEffect(() => {
@@ -114,13 +118,13 @@ export default function CustomerSupport() {
                         const { scrollTop, scrollHeight, clientHeight } = tableWrapper;
 
                         if (scrollTop + clientHeight >= scrollHeight - 10 && hasNextPage && !loading) {
-                                fetchdetails(page + 1);
+                                fetchdetails(page + 1, false, { [sortBy]: sortOrder }, {}, {}, searchText.trim());
                         }
                 };
 
                 tableWrapper?.addEventListener("scroll", handleScroll);
                 return () => tableWrapper?.removeEventListener("scroll", handleScroll);
-        }, [page, hasNextPage, loading]);
+        }, [page, hasNextPage, loading, sortBy, sortOrder, searchText]);
 
         const ResolveSupport = async () => {
                 if (!remark.trim()) {
@@ -202,27 +206,19 @@ export default function CustomerSupport() {
                                                                                 <th className="common-table-th" onClick={() => handleSort("tickitid")}>
                                                                                         <div className="th-content">
                                                                                                 Tickit Id
-                                                                                                <span className="material-symbols-outlined main-color fs-20 pointer rotate-90">
-                                                                                                        {Config.icons["sort"]}
+                                                                                                <span className={Method.getSortIconClass("tickitid", sortBy, sortOrder)} onClick={() => handleSort("tickitid")}>
+                                                                                                        {Method.getSortIcon("tickitid", sortBy, sortOrder)}
                                                                                                 </span>
                                                                                         </div>
                                                                                 </th>
                                                                                 <th className="common-table-th" onClick={() => handleSort("name")}>
                                                                                         <div className="th-content">
                                                                                                 Customer Name
-                                                                                                <span className="material-symbols-outlined main-color fs-20 pointer rotate-90">
-                                                                                                        {Config.icons["sort"]}
+                                                                                                <span className={Method.getSortIconClass("name", sortBy, sortOrder)} onClick={() => handleSort("name")}>
+                                                                                                        {Method.getSortIcon("name", sortBy, sortOrder)}
                                                                                                 </span>
                                                                                         </div>
                                                                                 </th>
-                                                                                {/* <th className="common-table-th" onClick={() => handleSort("name")}>
-                                                                                        <div className="th-content">
-                                                                                                Created/Updated
-                                                                                                <span className="material-symbols-outlined main-color fs-20 pointer rotate-90">
-                                                                                                        {Config.icons["sort"]}
-                                                                                                </span>
-                                                                                        </div>
-                                                                                </th> */}
                                                                                 <th className="common-table-th">Message</th>
                                                                                 <th className="common-table-th">Action</th>
                                                                         </tr>
@@ -231,7 +227,6 @@ export default function CustomerSupport() {
                                                                         {loading && details.length === 0 ? (
                                                                                 <tr>
                                                                                         <td className="common-table-td" colSpan="4" style={{ textAlign: "center", padding: "40px" }}>
-                                                                                                {/* Loading details... */}
                                                                                                 {Method.showLoader()}
                                                                                         </td>
                                                                                 </tr>
@@ -240,7 +235,6 @@ export default function CustomerSupport() {
                                                                                         <tr key={detail._id}>
                                                                                                 <td className="common-table-td">{detail.tickitid}</td>
                                                                                                 <td className="common-table-td">{detail.name}</td>
-                                                                                                {/* <td className="common-table-td">{Method.renderDate(detail.createdAt)}</td> */}
                                                                                                 <td className="common-table-td">{detail.message}</td>
                                                                                                 <td className="common-table-td">
                                                                                                         {detail.iscompleted === 0 ? Method.tooltip(
@@ -249,7 +243,7 @@ export default function CustomerSupport() {
                                                                                                                         className="actionbtn"
                                                                                                                         onClick={() => {
                                                                                                                                 setSelectedTicketId(detail._id);
-                                                                                                                                setSelectedDetail(detail); // set selected detail for modal
+                                                                                                                                setSelectedDetail(detail);
                                                                                                                                 setModalVisible(true);
                                                                                                                         }}
                                                                                                                 >
@@ -270,7 +264,6 @@ export default function CustomerSupport() {
                                                                         ) : (
                                                                                 <tr>
                                                                                         <td className="common-table-td" colSpan="4" style={{ textAlign: "center", padding: "40px" }}>
-                                                                                                {/* No Customer Ticket found */}
                                                                                                 {Method.noDataFound()}
                                                                                         </td>
                                                                                 </tr>
@@ -284,17 +277,11 @@ export default function CustomerSupport() {
                                 {modalVisible && (
                                         <div className="modal-overlay">
                                                 <div className={`modal-content-select width-40 alert-modal ${isAnimatingAlertOut ? "fade-out" : ""}`}>
-
-                                                        {/* Ticket ID - Centered */}
                                                         <div className="modal-ticket-id main-color fs-25"><strong>{selectedDetail.tickitid}</strong></div>
-
-                                                        {/* Customer Name (Left) and Created At (Right) */}
                                                         <div className="modal-customer-row">
                                                                 <div className="modal-customer-name main-color fs-18">{selectedDetail.name}</div>
                                                                 <div className="modal-created-at main-color fs-18">{Method.formatDateToCustom(selectedDetail.createdAt)}</div>
                                                         </div>
-
-                                                        {/* Resolve Remark Input */}
                                                         <div className="main-color fs-18">Message:- {selectedDetail.message}</div>
                                                         <form className="sidebar-form modal-remark-form">
                                                                 <div className="form-group">
@@ -308,8 +295,6 @@ export default function CustomerSupport() {
                                                                         />
                                                                 </div>
                                                         </form>
-
-                                                        {/* Resolve Button - Centered */}
                                                         <div className="modal-button-container">
                                                                 <button className="main-cancle-btn mr-20" onClick={closeModal}>
                                                                         Cancel

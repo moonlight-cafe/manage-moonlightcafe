@@ -218,10 +218,11 @@ function Fooditems() {
         // Clear search when empty
         // -------------------------
         useEffect(() => {
-                if (searchText.trim() === "") {
-                        fetchFoodItems(1, true, { [sortBy]: sortOrder }, filters, "");
-                }
-        }, [searchText]);
+		const timer = setTimeout(() => {
+			fetchFoodItems(1, true, { [sortBy]: sortOrder }, filters, searchText.trim());
+		}, 500);
+		return () => clearTimeout(timer);
+	}, [searchText]);
 
         // -------------------------
         // Initial Load - Only runs once
@@ -598,7 +599,7 @@ function Fooditems() {
 
                                                         {canAdd && (
                                                                 <button
-                                                                        className="main-btn"
+                                                                        className="main-btn desktop-add-btn"
                                                                         onClick={() => {
                                                                                 setIsSidebarOpen(true);
                                                                                 setFormData({});
@@ -611,7 +612,7 @@ function Fooditems() {
                                                         )}
 
                                                         <button
-                                                                className="filter-btn"
+                                                                className="filter-btn desktop-filter-btn"
                                                                 onClick={() => {
                                                                         setIsFilterSidebarOpen(true);
                                                                         setTempFilters(filters);
@@ -623,6 +624,37 @@ function Fooditems() {
                                                                 </span>
                                                         </button>
                                                 </div>
+                                        </div>
+
+                                        {/* Mobile Floating Action Button (FAB) */}
+                                        <div className="mobile-fab-container">
+                                                {canAdd && (
+                                                        <button
+                                                                className="mobile-fab-btn"
+                                                                onClick={() => {
+                                                                        setIsSidebarOpen(true);
+                                                                        setFormData({});
+                                                                        setEditingId(null);
+                                                                        setAddCategoryDropdownOpen(false);
+                                                                }}
+                                                                disabled={loading}
+                                                                title="Add Food Item"
+                                                        >
+                                                                <span className="material-symbols-outlined">add</span>
+                                                        </button>
+                                                )}
+                                                <button
+                                                        className="mobile-fab-filter-btn"
+                                                        onClick={() => {
+                                                                setIsFilterSidebarOpen(true);
+                                                                setTempFilters(filters);
+                                                                setFilterCategoryDropdownOpen(false);
+                                                        }}
+                                                        disabled={loading}
+                                                        title="Filter Food Items"
+                                                >
+                                                        <span className="material-symbols-outlined">filter_alt</span>
+                                                </button>
                                         </div>
 
                                         {/* Filter Chips */}

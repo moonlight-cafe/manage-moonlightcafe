@@ -20,6 +20,7 @@ export default function Profile() {
         const [twoFACode, setTwoFACode] = useState("");
         const [twoFASecret, setTwoFASecret] = useState("");
         const [twoFAOtpAuthUrl, setTwoFAOtpAuthUrl] = useState("");
+        const [darkMode, setDarkMode] = useState(false);
 
         const [popup, setPopup] = useState({ message: "", type: "", visible: false });
         const [formData, setFormData] = useState({
@@ -49,6 +50,9 @@ export default function Profile() {
                         if (response.status === 200) {
                                 const data = response.data?.data || response.data || [];
                                 setUser(data[0] || null);
+                                setDarkMode(data[0].darkmodeaccess);
+                                Method.setCookie("theme", data[0].darkmodeaccess ? "dark" : "light");
+                                window.dispatchEvent(new Event("themeChanged"));
                         } else {
                                 showPopup(response.message || "Failed to load profile");
                         }
@@ -57,6 +61,19 @@ export default function Profile() {
                         showPopup("Server error while loading profile");
                 } finally {
                         setLoading(false);
+                }
+        };
+
+        const toggleDark = async () => {
+                const current = Number(user.darkmodeaccess);
+                const next = current === 0 ? 1 : 0;
+
+                const res = await API.ChangeTheme(user._id, next);
+
+                if (res?.status === 200) {
+                        setDarkMode(next);
+                        setUser(prev => ({ ...prev, darkmodeaccess: next }));
+                        window.dispatchEvent(new Event("themeChanged"));
                 }
         };
 
@@ -378,6 +395,16 @@ export default function Profile() {
                                                                         </p>
                                                                         <span className="material-symbols-outlined white">
                                                                                 edit
+                                                                        </span>
+                                                                </div>
+
+                                                                <div className="info-item cursor-pointer" onClick={toggleDark}>
+                                                                        <span className="material-symbols-outlined profile-item-icon">
+                                                                                {darkMode ? "light_mode" : "dark_mode"}
+                                                                        </span>
+                                                                        <p className="info-label fs-18">{darkMode ? "Transparent Mode" : "Dark Mode"}</p>
+                                                                        <span className={`dark-mode-switch ${darkMode ? "on" : ""}`} style={{ marginLeft: "auto" }}>
+                                                                                <span className="dark-mode-thumb"></span>
                                                                         </span>
                                                                 </div>
                                                         </div>

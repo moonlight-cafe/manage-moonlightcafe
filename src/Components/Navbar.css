@@ -10,7 +10,7 @@
         display: flex;
         flex-direction: column;
         transition: width 0.30s ease, left 0.30s ease, box-shadow 0.30s ease;
-        z-index: 99999999999;
+        z-index: 1000;
         box-shadow: 4px 0 20px rgba(0, 0, 0, 0.25);
         user-select: none;
 }
@@ -36,6 +36,8 @@
         object-fit: contain;
         transition: 0.3s ease;
         flex-shrink: 0;
+        -webkit-user-drag: none;
+        user-select: none;
 }
 
 .logo-square {
@@ -327,7 +329,7 @@
         justify-content: flex-end;
         align-items: center;
         padding: 0 26px;
-        z-index: 20;
+        z-index: 500;
         box-shadow: 0 2px 18px rgba(0, 0, 0, 0.25);
         transition: margin-left 0.3s ease;
 }
@@ -512,7 +514,7 @@
         border: 1px solid rgba(71, 217, 168, 0.25);
         box-shadow: 0 18px 40px rgba(0, 0, 0, 0.35);
         animation: dropdownFade 0.2s ease;
-        z-index: 50;
+        z-index: 600;
 }
 
 .notifications-dropdown {
@@ -527,7 +529,7 @@
         /* padding: 10px 0; */
         box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
         animation: dropdownFade 0.2s ease;
-        z-index: 2005;
+        z-index: 600;
 }
 
 .notif-header {
@@ -538,7 +540,7 @@
 }
 
 .realall-notif {
-        padding: 5px 5px;
+        padding: 4px 4px;
         border-radius: 10px;
         background: rgba(71, 217, 168, 0.16);
         color: #47d9a8;
@@ -570,6 +572,27 @@
         background: rgba(255, 255, 255, 0.03);
         border: 1px solid rgba(255, 255, 255, 0.04);
         transition: 0.2s ease;
+}
+
+.notif-item.unread {
+        background: rgba(71, 217, 168, 0.1);
+        border: 1px solid rgba(71, 217, 168, 0.8);
+        color: #ffffff;
+}
+
+.notif-item.unread .notif-text {
+        color: #ffffff;
+        font-weight: 600;
+}
+
+.notif-item.unread .notif-time {
+        color: rgba(255, 255, 255, 0.85);
+}
+
+.notif-item.unread:hover {
+        background: rgba(71, 217, 168, 0.2);
+        border-color: rgba(71, 217, 168, 0.8);
+        color: #ffffff;
 }
 
 .notif-item:hover {
@@ -820,15 +843,6 @@
 
 .mobile-close-btn {
         display: none;
-        background: transparent;
-        border: none;
-        color: #47d9a8;
-        cursor: pointer;
-        padding: 5px;
-}
-
-.mobile-close-btn .material-symbols-outlined {
-        font-size: 28px;
 }
 
 .mobile-overlay {
@@ -836,7 +850,7 @@
         position: fixed;
         inset: 0;
         background: rgba(0, 0, 0, 0.6);
-        z-index: 4;
+        z-index: 99998 !important;
 }
 
 /* Responsive Navbar */
@@ -864,38 +878,66 @@
                 display: none !important;
         }
 
-        .mobile-close-btn {
-                display: flex;
-                align-items: center;
-                justify-content: center;
+        .sidebar-close-btn.mobile-close-btn {
+                display: flex !important;
+                position: absolute !important;
+                top: 22px !important;
+                right: 18px !important;
+                z-index: 10 !important;
         }
 
         .navbar {
-                width: 260px;
-                /* Default width when expanded */
-                left: -260px;
-                /* Hide completely offscreen by default */
-                z-index: 99999999999;
+                width: min(320px, 85vw) !important;
+                left: -100% !important;
+                transform: translateX(-100%) !important;
+                transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), left 0.3s ease !important;
+                z-index: 99999 !important;
         }
 
         /* Mobile specifically ignores hover expansion, only uses .mobile-open */
         .navbar:hover,
         .navbar:active,
         .navbar.pinned {
-                left: -260px;
-                width: 260px;
+                left: -100% !important;
+                transform: translateX(-100%) !important;
+                width: min(320px, 85vw) !important;
         }
 
-        .navbar.mobile-open {
+        .navbar.mobile-open,
+        .navbar.mobile-open:hover,
+        .navbar.mobile-open:active {
                 left: 0 !important;
-                width: 260px !important;
-                box-shadow: 4px 0 20px rgba(0, 0, 0, 0.5);
+                transform: translateX(0) !important;
+                width: min(320px, 85vw) !important;
+                box-shadow: 4px 0 25px rgba(0, 0, 0, 0.6) !important;
+                z-index: 99999 !important;
         }
 
         .top-navbar {
+                height: 56px;
+                padding: 0 14px;
                 width: 100%;
                 margin-left: 0 !important;
                 justify-content: space-between;
+        }
+
+        .top-navbar-inner {
+                gap: 12px;
+        }
+
+        .top-icon-btn {
+                width: 36px;
+                height: 36px;
+                border-radius: 10px;
+        }
+
+        .top-icon-btn span {
+                font-size: 20px;
+        }
+
+        .top-profile {
+                width: 36px;
+                height: 36px;
         }
 
         .navbar:hover~.top-navbar,
@@ -920,15 +962,25 @@
 
 @media (max-width: 480px) {
         .navbar {
-                left: -100%;
-                z-index: 99999999999;
+                left: -100% !important;
+                transform: translateX(-100%) !important;
+                width: 100% !important;
+                z-index: 99999 !important;
         }
 
-        /* On extreme mobile screens, force full width */
-        .navbar.mobile-open,
         .navbar:hover,
         .navbar:active,
         .navbar.pinned {
+                left: -100% !important;
+                transform: translateX(-100%) !important;
+                width: 100% !important;
+        }
+
+        .navbar.mobile-open,
+        .navbar.mobile-open:hover,
+        .navbar.mobile-open:active {
+                left: 0 !important;
+                transform: translateX(0) !important;
                 width: 100% !important;
         }
 

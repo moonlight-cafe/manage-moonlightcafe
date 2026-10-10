@@ -2,7 +2,240 @@ import "./Methods.css";
 import ReactDOM from "react-dom";
 import _Config from "./Config.js";
 import { DayPicker } from "react-day-picker";
-import React from "react";
+import React, { useState, useEffect } from "react";
+
+const months = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+
+export const CustomDateRangePicker = ({ customRange, setCustomRange, calendarMonth, setCalendarMonth, onRangeComplete }) => {
+        const [view, setView] = useState("date"); // 'date', 'month', 'year'
+        const [yearStart, setYearStart] = useState(() => Math.floor(calendarMonth.getFullYear() / 12) * 12);
+
+        const handleMonthClick = (monthIndex) => {
+                const newMonth = new Date(calendarMonth);
+                newMonth.setMonth(monthIndex);
+                setCalendarMonth(newMonth);
+                setView("date");
+        };
+
+        const handleYearClick = (year) => {
+                const newMonth = new Date(calendarMonth);
+                newMonth.setFullYear(year);
+                setCalendarMonth(newMonth);
+                setView("month");
+        };
+
+        const CustomCaptionLabel = (props) => {
+                const monthToShow = props?.displayMonth || calendarMonth || new Date();
+                return (
+                        <div style={{ display: 'flex', justifyContent: 'center', gap: '5px', alignItems: 'center' }}>
+                                <span
+                                        onClick={(e) => { e.preventDefault(); e.stopPropagation(); setView("month"); }}
+                                        onMouseDown={(e) => { e.preventDefault(); e.stopPropagation(); setView("month"); }}
+                                        style={{ cursor: "pointer", fontWeight: "bold", padding: "2px 5px" }}
+                                >
+                                        {months[monthToShow.getMonth()]}
+                                </span>
+                                <span
+                                        onClick={(e) => { e.preventDefault(); e.stopPropagation(); setView("year"); }}
+                                        onMouseDown={(e) => { e.preventDefault(); e.stopPropagation(); setView("year"); }}
+                                        style={{ cursor: "pointer", fontWeight: "bold", padding: "2px 5px" }}
+                                >
+                                        {monthToShow.getFullYear()}
+                                </span>
+                        </div>
+                );
+        };
+
+        return (
+                <div className="calendar-popover dark-calendar" style={{ position: "absolute", top: "100%", right: 0, zIndex: 9999, marginTop: "5px" }}>
+                        {view === "date" && (
+                                <DayPicker
+                                        mode="range"
+                                        selected={customRange}
+                                        onSelect={(range, selectedDay) => {
+                                                if (!selectedDay) return;
+                                                if (!customRange?.from || (customRange?.from && customRange?.to)) {
+                                                        setCustomRange({ from: selectedDay, to: undefined });
+                                                } else {
+                                                        const date1 = customRange.from;
+                                                        const date2 = selectedDay;
+                                                        const from = date1 < date2 ? date1 : date2;
+                                                        const to = date1 < date2 ? date2 : date1;
+                                                        const newRange = { from, to };
+                                                        setCustomRange(newRange);
+                                                        if (onRangeComplete) onRangeComplete(newRange);
+                                                }
+                                        }}
+                                        month={calendarMonth}
+                                        onMonthChange={setCalendarMonth}
+                                        numberOfMonths={1}
+                                        disabled={{ after: new Date() }}
+                                        components={{ CaptionLabel: CustomCaptionLabel }}
+                                />
+                        )}
+
+                        {view === "month" && (
+                                <div className="custom-calendar-view" style={{ minWidth: "294px" }}>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '15px', alignItems: 'center' }}>
+                                                <span style={{ fontWeight: 'bold', color: '#47d9a8', fontSize: '18px' }}>Select Month</span>
+                                                <span
+                                                        className="material-symbols-outlined"
+                                                        style={{ cursor: 'pointer', color: '#47d9a8' }}
+                                                        onClick={(e) => { e.stopPropagation(); setView("date"); }}
+                                                >close</span>
+                                        </div>
+                                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '15px', marginTop: '20px' }}>
+                                                {months.map((m, idx) => (
+                                                        <button
+                                                                type="button"
+                                                                key={m}
+                                                                className="main-btn"
+                                                                style={{
+                                                                        padding: '12px 5px',
+                                                                        fontSize: '14px',
+                                                                        background: calendarMonth.getMonth() === idx ? "#47d9a8" : "rgba(71, 217, 168, 0.1)",
+                                                                        color: calendarMonth.getMonth() === idx ? "#000" : "#fff",
+                                                                        border: "1px solid #47d9a8",
+                                                                        borderRadius: "8px"
+                                                                }}
+                                                                onClick={(e) => { e.stopPropagation(); handleMonthClick(idx); }}
+                                                        >
+                                                                {m.slice(0, 3)}
+                                                        </button>
+                                                ))}
+                                        </div>
+                                </div>
+                        )}
+
+                        {view === "year" && (
+                                <div className="custom-calendar-view" style={{ minWidth: "294px" }}>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
+                                                <span
+                                                        className="material-symbols-outlined"
+                                                        style={{ cursor: 'pointer', color: yearStart > 2010 ? '#47d9a8' : 'gray' }}
+                                                        onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                if (yearStart > 2010) setYearStart(prev => prev - 12);
+                                                        }}
+                                                >chevron_left</span>
+                                                <span style={{ fontWeight: 'bold', color: '#47d9a8', fontSize: '18px' }}>{yearStart} - {yearStart + 11}</span>
+                                                <span
+                                                        className="material-symbols-outlined"
+                                                        style={{ cursor: 'pointer', color: '#47d9a8' }}
+                                                        onClick={(e) => { e.stopPropagation(); setYearStart(prev => prev + 12); }}
+                                                >chevron_right</span>
+                                        </div>
+                                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '15px', marginTop: '20px' }}>
+                                                {Array.from({ length: 12 }).map((_, idx) => {
+                                                        const y = yearStart + idx;
+                                                        return (
+                                                                <button
+                                                                        type="button"
+                                                                        key={y}
+                                                                        className="main-btn"
+                                                                        style={{
+                                                                                padding: '12px 5px',
+                                                                                fontSize: '14px',
+                                                                                background: calendarMonth.getFullYear() === y ? "#47d9a8" : "rgba(71, 217, 168, 0.1)",
+                                                                                color: calendarMonth.getFullYear() === y ? "#000" : "#fff",
+                                                                                border: "1px solid #47d9a8",
+                                                                                borderRadius: "8px",
+                                                                                opacity: y < 2010 || y > new Date().getFullYear() ? 0.3 : 1
+                                                                        }}
+                                                                        onClick={(e) => {
+                                                                                e.stopPropagation();
+                                                                                if (y >= 2010 && y <= new Date().getFullYear()) handleYearClick(y);
+                                                                        }}
+                                                                        disabled={y < 2010 || y > new Date().getFullYear()}
+                                                                >
+                                                                        {y}
+                                                                </button>
+                                                        );
+                                                })}
+                                        </div>
+                                </div>
+                        )}
+                </div>
+        );
+};
+const BillViewerModal = ({ billUrl, onClose }) => {
+        const [htmlContent, setHtmlContent] = useState('');
+        const [loading, setLoading] = useState(true);
+        const [isAnimatingOut, setIsAnimatingOut] = useState(false);
+
+        useEffect(() => {
+                if (billUrl) {
+                        setIsAnimatingOut(false);
+                        setLoading(true);
+                        fetch(billUrl)
+                                .then(response => response.text())
+                                .then(html => {
+                                        // Replace 'body {' with '.bill-container {' to prevent global style override
+                                        const safeHtml = html.replace(/body\s*\{/gi, '.bill-container {');
+                                        setHtmlContent(safeHtml);
+                                        setLoading(false);
+                                })
+                                .catch(err => {
+                                        console.error("Failed to load bill HTML", err);
+                                        setHtmlContent(`<div style="padding: 40px; color: red; text-align: center;">Error loading bill: ${err.message}. Please use the Download button.</div>`);
+                                        setLoading(false);
+                                });
+                }
+        }, [billUrl]);
+
+        const handlePrint = () => {
+                const printWindow = window.open('', '_blank');
+                printWindow.document.write(htmlContent);
+                printWindow.document.close();
+                printWindow.focus();
+                setTimeout(() => {
+                        printWindow.print();
+                        printWindow.close();
+                }, 500);
+        };
+
+        const handleClose = () => {
+                setIsAnimatingOut(true);
+                setTimeout(() => onClose(), 300);
+        };
+
+        if (!billUrl) return null;
+
+        return (
+                <div className="modal-overlay user-not-select" style={{ zIndex: 99999999999999 }}>
+                        <div className={`modal-content-select order-modal width-60 ${isAnimatingOut ? "fade-out" : ""}`} style={{ height: '90vh', maxHeight: '90vh', display: 'flex', flexDirection: 'column' }}>
+                                <button className="sidebar-close-btn" onClick={handleClose}>
+                                        <span className="material-symbols-outlined fs-20">close</span>
+                                </button>
+
+                                <h3 className="modal-title mt-30 m-0" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+                                        <span>Bill Viewer</span>
+                                        <button className="main-btn" onClick={handlePrint} disabled={loading || !htmlContent} style={{ marginRight: 50 }}>
+                                                <i className="fa-solid fa-print"></i> Print / Download PDF
+                                        </button>
+                                </h3>
+
+                                <style>{`
+                                        .no-scrollbar::-webkit-scrollbar { display: none; }
+                                        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+                                `}</style>
+                                <div className="card-ui no-scrollbar" style={{ flex: 1, backgroundColor: '#000', borderRadius: 8, padding: 0, overflow: 'auto', color: '#fff' }}>
+                                        {loading ? (
+                                                <div style={{ padding: 40, display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%' }}>
+                                                        <nav className="loader-container">
+                                                                <img src={Config.moonlightcafelogo} alt="Loading Animation" className="loading-image" />
+                                                        </nav>
+                                                </div>
+                                        ) : htmlContent ? (
+                                                <div className="bill-container" dangerouslySetInnerHTML={{ __html: htmlContent }} />
+                                        ) : (
+                                                <div style={{ padding: 40, textAlign: 'center', color: '#ff4d4d' }}>Invalid Bill URL or Bill Not Found</div>
+                                        )}
+                                </div>
+                        </div>
+                </div>
+        );
+};
 
 const Config = new _Config();
 const cafeurl = Config.moonlightcafelogo;
@@ -20,7 +253,8 @@ class Methods {
                         "/notifications",
                         "/verify/otp",
                         "/verify/2fa",
-                        "/reset/password"
+                        "/reset/password",
+                        "/bill-view"
                 ]);
 
                 return bypassPaths.has(pathname);
@@ -83,7 +317,7 @@ class Methods {
         generateuuid() {
                 return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
                         const r = Math.random() * 16 | 0;
-                        const v = c === 'x' ? r : (r & 0x3 | 0x8);
+                        const v = c === 'x' ? r : ((r & 0x3) | 0x8);
                         return v.toString(16);
                 });
         }
@@ -113,14 +347,23 @@ class Methods {
         }
 
         setCookie(name, value, durationInMinutes = 120) {
+                if (localStorage.getItem("admin_remember_me") === "true") {
+                        durationInMinutes = 7 * 24 * 60; // 7 days
+                }
                 const expires = new Date();
                 expires.setTime(expires.getTime() + durationInMinutes * 60 * 1000);
                 document.cookie = `${name}=${encodeURIComponent(JSON.stringify(value))};expires=${expires.toUTCString()};path=/`;
         }
 
         setPermissions(perms) {
-                localStorage.setItem("permissions", JSON.stringify(perms || []));
-        }
+		const data = perms || [];
+		localStorage.setItem("permissions", JSON.stringify(data));
+		localStorage.setItem("userrights", JSON.stringify(data));
+		sessionStorage.setItem("permissions", JSON.stringify(data));
+		sessionStorage.setItem("userrights", JSON.stringify(data));
+		this.setCookie("permissions", data);
+		this.setCookie("userrights", data);
+	}
 
         getPermissions() {
                 try {
@@ -232,9 +475,9 @@ class Methods {
                         style.bottom = `${viewportHeight - rect.top}px`;
                 }
                 if (horizontal === "right") {
-                        style.right = `${viewportWidth - rect.right}px`;
-                } else {
                         style.left = `${rect.left}px`;
+                } else {
+                        style.right = `${viewportWidth - rect.right}px`;
                 }
 
                 return { position: `${vertical}-${horizontal}`, style };
@@ -307,6 +550,11 @@ class Methods {
                                 </div>
                         )
                 );
+        }
+
+        renderBillViewer(billUrl, onClose) {
+                if (!billUrl) return null;
+                return <BillViewerModal billUrl={billUrl} onClose={onClose} />;
         }
 
         formatDatetoYYYYMMDD(date) {                            // DD-MM-YYYY
@@ -863,18 +1111,37 @@ class Methods {
         };
 
         getSortIcon(field, currentSortBy, currentSortOrder) {
-                if (currentSortBy === field) {
-                        if (currentSortOrder === 1) return Config.icons.sort_asc || "arrow_upward";
-                        if (currentSortOrder === -1) return Config.icons.sort_desc || "arrow_downward";
-                }
-                return Config.icons.sort || "sync_alt";
+                const isAsc = currentSortBy === field && currentSortOrder === 1;   // A -> Z
+                const isDesc = currentSortBy === field && currentSortOrder === -1; // Z -> A
+                const downColor = isAsc ? "#47d9a8" : "#1e1e1e"; // bottom face arrow for A -> Z
+                const upColor = isDesc ? "#47d9a8" : "#1e1e1e";   // top face arrow for Z -> A
+
+                return (
+                        <span className="sort-icon-arrows" style={{ display: "inline-flex", alignItems: "center", justifyContent: "center", verticalAlign: "middle", cursor: "pointer", marginLeft: "4px" }}>
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" style={{ display: "block" }}>
+                                        <path
+                                                d="M7 19V5M7 5L3 9M7 5L11 9"
+                                                stroke={upColor}
+                                                strokeWidth="2.5"
+                                                strokeLinecap="round"
+                                                strokeLinejoin="round"
+                                                style={{ transition: "stroke 0.2s ease" }}
+                                        />
+                                        <path
+                                                d="M17 5V19M17 19L13 15M17 19L21 15"
+                                                stroke={downColor}
+                                                strokeWidth="2.5"
+                                                strokeLinecap="round"
+                                                strokeLinejoin="round"
+                                                style={{ transition: "stroke 0.2s ease" }}
+                                        />
+                                </svg>
+                        </span>
+                );
         }
 
-        getSortIconClass(field, currentSortBy, currentSortOrder, baseClass = "material-symbols-outlined main-color fs-20 pointer") {
-                if (currentSortBy === field && (currentSortOrder === 1 || currentSortOrder === -1)) {
-                        return baseClass;
-                }
-                return `${baseClass} rotate-90`;
+        getSortIconClass(field, currentSortBy, currentSortOrder, baseClass = "") {
+                return "pointer inline-flex items-center";
         }
 
 }

@@ -35,7 +35,7 @@ function BackgroundManager() {
                         setTimeout(() => {
                                 setActionMenu((current) => {
                                         if (current.isClosing) {
-                                                return { open: false, item: null, position: "bottom-right", isClosing: false };
+                                                return { open: false, item: null, position: "bottom-right", style: {}, isClosing: false };
                                         }
                                         return current;
                                 });
@@ -236,7 +236,7 @@ function BackgroundManager() {
 
         const openActionMenu = (e, item) => {
                 e.stopPropagation();
-                const position = Method.getActionMenuPosition(e.currentTarget);
+                const { position, style } = Method.getActionMenuPosition(e.currentTarget);
 
                 setActionMenu((prev) => {
                         const isSame = (prev.open || prev.isClosing) && prev.item?._id === item?._id;
@@ -245,7 +245,7 @@ function BackgroundManager() {
                                         setTimeout(() => {
                                                 setActionMenu((current) => {
                                                         if (current.isClosing) {
-                                                                return { open: false, item: null, position: "bottom-right", isClosing: false };
+                                                                return { open: false, item: null, position: "bottom-right", style: {}, isClosing: false };
                                                         }
                                                         return current;
                                                 });
@@ -254,7 +254,7 @@ function BackgroundManager() {
                                 }
                                 return prev;
                         } else {
-                                return { open: true, item: item, position, isClosing: false };
+                                return { open: true, item: item, position, style, isClosing: false };
                         }
                 });
         };
@@ -292,7 +292,7 @@ function BackgroundManager() {
                                                         </div>
                                                         {canAdd && (
                                                                 <button
-                                                                        className="main-btn"
+                                                                        className="main-btn desktop-add-btn"
                                                                         onClick={() => {
                                                                                 setIsSidebarOpen(true);
                                                                         }}
@@ -303,6 +303,19 @@ function BackgroundManager() {
                                                         )}
                                                 </div>
                                         </div>
+
+                                        {/* Mobile Floating Action Button (FAB) */}
+                                        {canAdd && (
+                                                <div className="mobile-fab-container">
+                                                        <button
+                                                                className="mobile-fab-btn"
+                                                                onClick={() => setIsSidebarOpen(true)}
+                                                                title="Add Background"
+                                                        >
+                                                                <span className="material-symbols-outlined">add</span>
+                                                        </button>
+                                                </div>
+                                        )}
 
                                         {viewMode === "table" ? (
                                                 <div className="common-table-container">
@@ -347,7 +360,7 @@ function BackgroundManager() {
                                                                                                                         actionMenu.item?._id === item._id && (
                                                                                                                                 <div
                                                                                                                                         ref={actionMenuRef}
-                                                                                                                                        className={`action-menu ${actionMenu.position} ${actionMenu.isClosing ? 'closing' : ''}`}
+                                                                                                                                        className={`action-menu ${actionMenu.position} ${actionMenu.isClosing ? 'closing' : ''}`} style={actionMenu.style}
                                                                                                                                 >
                                                                                                                                         {canDelete && (
                                                                                                                                                 <p
