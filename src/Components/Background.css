@@ -439,28 +439,68 @@
         }
 }
 
-@media (max-width: 480px) {
-        .gallery-grid {
-                grid-template-columns: 1fr;
-                gap: 15px;
-        }
-
+@media (max-width: 768px) {
         .view-toggle-container {
-                margin-right: 10px;
+                margin-right: 0 !important;
+                gap: 6px !important;
         }
 
         .view-toggle-btn {
-                width: 36px;
-                height: 36px;
+                width: 36px !important;
+                height: 36px !important;
+                border-radius: 8px !important;
+        }
+
+        .view-toggle-btn .material-symbols-outlined {
+                font-size: 18px !important;
+        }
+
+        .desktop-add-btn {
+                display: none !important;
+        }
+
+        .bg-thumb {
+                width: 90px !important;
+                height: 52px !important;
+                border-radius: 6px !important;
+        }
+
+        .gallery-container {
+                padding: 10px !important;
+        }
+
+        .gallery-grid {
+                grid-template-columns: 1fr !important;
+                gap: 12px !important;
+        }
+
+        .gallery-card-footer {
+                padding: 12px 14px !important;
+        }
+}
+
+@media (max-width: 480px) {
+        .gallery-grid {
+                grid-template-columns: 1fr;
+                gap: 12px;
+        }
+
+        .view-toggle-container {
+                margin-right: 0;
+        }
+
+        .view-toggle-btn {
+                width: 34px;
+                height: 34px;
         }
 
         .bg-upload-zone {
-                padding: 30px 15px;
-                min-height: 180px;
+                padding: 24px 15px;
+                min-height: 160px;
         }
 
         .bg-upload-icon .material-symbols-outlined {
-                font-size: 48px;
+                font-size: 40px;
         }
 
         .bg-upload-box {

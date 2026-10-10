@@ -2,10 +2,12 @@ import React, { useState, useRef, useEffect } from "react";
 import { useNavigate, useLocation, NavLink } from "react-router-dom";
 import "./Navbar.css";
 import { Method, API, Config } from "../config/Init.js"
+import { listenToMessages } from "../config/firebase.js"
 import { User } from 'lucide-react';
 
 function TopNavbar({ toggleMobileMenu }) {
         const navigate = useNavigate();
+        const location = useLocation();
 
         const [isProfileOpen, setIsProfileOpen] = useState(false);
         const [isNotifOpen, setIsNotifOpen] = useState(false);
@@ -16,19 +18,28 @@ function TopNavbar({ toggleMobileMenu }) {
         const [isShopOpen, setIsShopOpen] = useState(true);
         const [showLogoutModal, setShowLogoutModal] = useState(false);
         const [isClosing, setIsClosing] = useState(false);
+        const [hasUnreadNotif, setHasUnreadNotif] = useState(false);
+        const [popup, setPopup] = useState({ visible: false, message: "", type: "", key: 0 });
+        const popupTimerRef = useRef(null);
 
         const profileRef = useRef(null);
         const notifRef = useRef(null);
 
-        const admindata = Method.checkLoginStatus();
+        const [adminState, setAdminState] = useState(() => Method.checkLoginStatus()?.data || {});
+        const admindata = { status: adminState?.email ? 200 : 400, data: adminState };
 
         useEffect(() => {
                 if (admindata.status !== 200) {
                         localStorage.removeItem("menus");
-                        navigate("/login");
+                        if (location.pathname !== '/login') {
+                                navigate(`/login?page=${location.pathname}${location.search}`);
+                        } else {
+                                navigate("/login");
+                        }
                         return;
                 }
                 setDarkMode(admindata.data.darkmodeaccess);
+                setHasUnreadNotif(!!admindata.data.hasUnreadNotifications);
                 Method.setCookie(
                         "theme",
                         admindata.data.darkmodeaccess ? "dark" : "light"
@@ -39,6 +50,33 @@ function TopNavbar({ toggleMobileMenu }) {
         useEffect(() => {
                 const intervalId = setInterval(() => setCurrentTime(new Date()), 1000);
                 return () => clearInterval(intervalId);
+        }, []);
+
+        useEffect(() => {
+                const handleUnreadUpdate = (e) => {
+                        if (e.detail && e.detail.hasUnread !== undefined) {
+                                setHasUnreadNotif(e.detail.hasUnread);
+                        }
+                };
+                window.addEventListener("unreadNotifUpdated", handleUnreadUpdate);
+                return () => window.removeEventListener("unreadNotifUpdated", handleUnreadUpdate);
+        }, []);
+
+        useEffect(() => {
+                const handleAdminDataUpdate = (e) => {
+                        const updated = e.detail || Method.checkLoginStatus()?.data;
+                        if (updated) {
+                                setAdminState(updated);
+                                if (updated.darkmodeaccess !== undefined) {
+                                        setDarkMode(updated.darkmodeaccess);
+                                }
+                                if (updated.hasUnreadNotifications !== undefined) {
+                                        setHasUnreadNotif(!!updated.hasUnreadNotifications);
+                                }
+                        }
+                };
+                window.addEventListener("adminDataUpdated", handleAdminDataUpdate);
+                return () => window.removeEventListener("adminDataUpdated", handleAdminDataUpdate);
         }, []);
 
         useEffect(() => {
@@ -55,6 +93,15 @@ function TopNavbar({ toggleMobileMenu }) {
                 return () => document.removeEventListener("mousedown", handleClickOutside);
         }, []);
 
+        useEffect(() => {
+                listenToMessages((payload) => {
+                        setHasUnreadNotif(true);
+                        const title = payload?.notification?.title || "New Notification";
+                        const body = payload?.notification?.body || "You have a new message.";
+                        Method.showPopup(setPopup, popupTimerRef, `${title}: ${body}`, "info");
+                });
+        }, []);
+
         const toggleDark = async () => {
                 const empid = admindata.data._id;
                 const current = Number(admindata.data.darkmodeaccess);
@@ -63,7 +110,7 @@ function TopNavbar({ toggleMobileMenu }) {
                 const res = await API.ChangeTheme(empid, next);
 
                 if (res?.status === 200) {
-                        setDarkMode(next)
+                        setDarkMode(next);
                         window.dispatchEvent(new Event("themeChanged"));
                 }
         };
@@ -84,6 +131,15 @@ function TopNavbar({ toggleMobileMenu }) {
                 closeModal();
         };
 
+        const updateUnreadIconState = (hasUnread) => {
+                setHasUnreadNotif(!!hasUnread);
+                if (admindata && admindata.data) {
+                        admindata.data.hasUnreadNotifications = !!hasUnread;
+                        Method.setCookie("admindata", admindata.data);
+                }
+                window.dispatchEvent(new CustomEvent("unreadNotifUpdated", { detail: { hasUnread: !!hasUnread } }));
+        };
+
         const fetchNotifications = async () => {
                 setNotifLoading(true);
                 const res = await API.ListNotification(1, 10, { _id: -1 }, {}, {}, "");
@@ -95,7 +151,7 @@ function TopNavbar({ toggleMobileMenu }) {
                 setNotifLoading(false);
         };
 
-        const markSingleNotificationRead = async (notificationId) => {
+        const markSingleNotificationRead = async (notificationId, clickaction, newTab = false) => {
                 if (!notificationId) return;
 
                 const res = await API.ReadNotification({ _id: notificationId, allread: 0 });
@@ -105,6 +161,14 @@ function TopNavbar({ toggleMobileMenu }) {
                                         item._id === notificationId ? { ...item, read: 1 } : item
                                 )
                         );
+                        updateUnreadIconState(res.hasUnreadNotifications);
+                        if (clickaction) {
+                                if (newTab) {
+                                        window.open(clickaction, '_blank');
+                                } else {
+                                        navigate(clickaction);
+                                }
+                        }
                 }
         };
 
@@ -112,6 +176,7 @@ function TopNavbar({ toggleMobileMenu }) {
                 const res = await API.ReadNotification({ allread: 1 });
                 if (res?.status === 200) {
                         setNotifications((prev) => prev.map((item) => ({ ...item, read: 1 })));
+                        updateUnreadIconState(false);
                 }
         };
 
@@ -126,7 +191,6 @@ function TopNavbar({ toggleMobileMenu }) {
         const getNotificationText = (n) => {
                 return n?.message || n?.title || n?.description || n?.body || "Notification";
         };
-
         const getNotificationTime = (n) => {
                 const raw = n?.createdat || n?.created_at || n?.date || n?.createdon;
                 if (!raw) return "";
@@ -168,7 +232,7 @@ function TopNavbar({ toggleMobileMenu }) {
                                                                 className="top-icon-btn user-not-select"
                                                                 onClick={handleNotifToggle}
                                                         >
-                                                                <span className="material-symbols-outlined">notifications</span>
+                                                                <span className="material-symbols-outlined">{hasUnreadNotif ? "notifications_unread" : "notifications"}</span>
                                                         </button>,
                                                         "bottom"
                                                 )}
@@ -176,11 +240,11 @@ function TopNavbar({ toggleMobileMenu }) {
                                                 {isNotifOpen && (
                                                         <div className="notifications-dropdown">
                                                                 <div className="notif-header user-not-select">
-                                                                        <span className="material-symbols-outlined drop-item-icon main-color">notifications</span>
-                                                                        <div className="fs-20 main-color">Notifications</div>
+                                                                        {/* <span className="material-symbols-outlined drop-item-icon main-color">notifications</span> */}
+                                                                        <div className="fs-20 ml-5 main-color">Notifications</div>
                                                                         {Method.tooltip(
                                                                                 "Mark as all Read",
-                                                                                <span className="material-symbols-outlined main-color realall-notif" onClick={markAllNotificationsRead}>checklist</span>,
+                                                                                <span className="material-symbols-outlined main-color realall-notif mr-5" onClick={markAllNotificationsRead}>checklist</span>,
                                                                                 'left'
                                                                         )}
                                                                 </div>
@@ -200,12 +264,12 @@ function TopNavbar({ toggleMobileMenu }) {
                                                                                                                 (<span className="material-symbols-outlined drop-item-icon main-color">notifications_unread</span>) :
                                                                                                                 (<span className="material-symbols-outlined drop-item-icon">notifications</span>)
                                                                                                         }
-                                                                                                        <div className="notif-content">
+                                                                                                        <div className="notif-content" onClick={() => markSingleNotificationRead(n._id, n.clickaction)} style={{ cursor: "pointer" }}>
                                                                                                                 <div className="notif-text">{getNotificationText(n)}</div>
                                                                                                                 {time ? <div className="notif-time">{time}</div> : null}
                                                                                                         </div>
                                                                                                         {n.read === 0 ?
-                                                                                                                (<span className="material-symbols-outlined drop-item-icon" onClick={() => markSingleNotificationRead(n._id)}>check</span>) :
+                                                                                                                (<span className="material-symbols-outlined drop-item-icon" onClick={(e) => { e.stopPropagation(); markSingleNotificationRead(n._id, n.clickaction); }}>check</span>) :
                                                                                                                 (<span className="material-symbols-outlined drop-item-icon main-color">done_all</span>)
                                                                                                         }
                                                                                                 </div>
@@ -296,6 +360,7 @@ function TopNavbar({ toggleMobileMenu }) {
                                         </div>
                                 </div>
                         )}
+                        {Method.renderPopup(popup, () => setPopup({ ...popup, visible: false }))}
                 </>
         );
 }
@@ -349,68 +414,124 @@ export default function Navbar() {
                 }
         }, [isPinned, isHovered]);
 
-        useEffect(() => {
-                const cachedMenus = localStorage.getItem("menus");
+	const organizeMenus = React.useCallback((menuData) => {
+		if (!Array.isArray(menuData) || menuData.length === 0) return [];
+		
+		const perms = Method.getPermissions();
+		const permMap = {};
+		perms.forEach(p => {
+			if (p.menu_id) permMap[p.menu_id.toString()] = p;
+			if (p.menu_alias) permMap[p.menu_alias] = p;
+		});
 
-                if (cachedMenus) {
-                        const rawMenus = JSON.parse(cachedMenus);
-                        const organized = organizeMenus(rawMenus);
-                        setMenus(organized);
-                        return;
-                }
+		const parents = menuData.filter(m => m.submenu === 0);
+		const children = menuData.filter(m => m.submenu === 1);
 
-                const fetchMenus = async () => {
-                        setLoading(true);
-                        const res = await API.fetchMenus(1, 99999, { displayorder: 1 }, { isactive: 1 }, {});
-                        if (res.status === 200) {
-                                const rawMenus = res.data || [];
-                                localStorage.setItem("menus", JSON.stringify(rawMenus));
-                                setMenus(organizeMenus(rawMenus));
-                        }
-                        setLoading(false);
-                };
+		return parents
+			.map(parent => {
+				const parentPerm = permMap[parent._id?.toString()] || permMap[parent.redirecturl];
+				const parentName = parentPerm?.menu_name || parent.name || "Menu";
 
-                fetchMenus();
-        }, []);
+				return {
+					...parent,
+					name: parentName,
+					children: children
+						.filter(c => c.parentmenuid === parent._id)
+						.map(child => {
+							const childPerm = permMap[child._id?.toString()] || permMap[child.redirecturl];
+							const childName = childPerm?.menu_name || child.name || "Submenu";
+							return {
+								...child,
+								name: childName
+							};
+						})
+						.sort((a, b) => (parseInt(a.displayorder) || 0) - (parseInt(b.displayorder) || 0))
+				};
+			})
+			.sort((a, b) => (parseInt(a.displayorder) || 0) - (parseInt(b.displayorder) || 0));
+	}, []);
 
-        // Auto-expand submenu if child page is active - React to route changes
-        useEffect(() => {
-                // If navbar is collapsed → close all submenus
-                if (!isPinned && !isHovered) {
-                        setOpenSubmenus(new Set());
-                        return;
-                }
+	const loadMenus = React.useCallback(async (freshData = null) => {
+		if (freshData && Array.isArray(freshData) && freshData.length > 0) {
+			setMenus(organizeMenus(freshData));
+			return;
+		}
 
-                // Navbar is expanded → auto open active submenu
-                const currentPath = location.pathname;
-                const newOpenSubmenus = new Set();
+		const cachedMenus = localStorage.getItem("menus");
+		if (cachedMenus) {
+			try {
+				const parsed = JSON.parse(cachedMenus);
+				if (Array.isArray(parsed) && parsed.length > 0) {
+					setMenus(organizeMenus(parsed));
+				}
+			} catch (e) {}
+		}
 
-                menus.forEach(menu => {
-                        const hasActiveChild = menu.children?.some(child =>
-                                isPathMatch(currentPath, child.redirecturl)
-                        );
+		try {
+			const res = await API.fetchMenus(1, 99999, { displayorder: 1 }, { isactive: 1 }, {});
+			if (res.status === 200) {
+				const rawMenus = Array.isArray(res.data) ? res.data : res.data?.data || [];
+				if (rawMenus.length > 0) {
+					localStorage.setItem("menus", JSON.stringify(rawMenus));
+					localStorage.setItem("menudetails", JSON.stringify(rawMenus));
+					sessionStorage.setItem("menus", JSON.stringify(rawMenus));
+					sessionStorage.setItem("menudetails", JSON.stringify(rawMenus));
+					Method.setCookie("menus", rawMenus);
+					Method.setCookie("menudetails", rawMenus);
+					setMenus(organizeMenus(rawMenus));
+				}
+			}
+		} catch (err) {
+			console.error("Navbar fetchMenus error:", err);
+		}
+	}, [organizeMenus]);
 
-                        if (hasActiveChild) {
-                                newOpenSubmenus.add(menu._id);
-                        }
-                });
+	useEffect(() => {
+		loadMenus();
 
-                setOpenSubmenus(newOpenSubmenus);
-        }, [location.pathname, menus, isPinned, isHovered]);
+		const handleMenusUpdated = (e) => {
+			if (e.detail && Array.isArray(e.detail) && e.detail.length > 0) {
+				loadMenus(e.detail);
+			} else {
+				loadMenus();
+			}
+		};
 
-        const organizeMenus = (menuData) => {
-                const parents = menuData.filter(m => m.submenu === 0);
-                const children = menuData.filter(m => m.submenu === 1);
+		const handlePermissionsUpdated = () => {
+			loadMenus();
+		};
 
-                return parents
-                        .map(parent => ({
-                                ...parent,
-                                children: children
-                                        .filter(c => c.parentmenuid === parent._id)
-                                        .sort((a, b) => (parseInt(a.displayorder) || 0) - (parseInt(b.displayorder) || 0))
-                        }))
-                        .sort((a, b) => (parseInt(a.displayorder) || 0) - (parseInt(b.displayorder) || 0));
-        };
+		window.addEventListener("menusUpdated", handleMenusUpdated);
+		window.addEventListener("permissionsUpdated", handlePermissionsUpdated);
+
+		return () => {
+			window.removeEventListener("menusUpdated", handleMenusUpdated);
+			window.removeEventListener("permissionsUpdated", handlePermissionsUpdated);
+		};
+	}, [loadMenus]);
+
+	// Auto-expand submenu if child page is active - React to route changes
+	useEffect(() => {
+		if (!isPinned && !isHovered) {
+			setOpenSubmenus(new Set());
+			return;
+		}
+
+		const currentPath = location.pathname;
+		const newOpenSubmenus = new Set();
+
+		menus.forEach(menu => {
+			const hasActiveChild = menu.children?.some(child =>
+				isPathMatch(currentPath, child.redirecturl)
+			);
+
+			if (hasActiveChild) {
+				newOpenSubmenus.add(menu._id);
+			}
+		});
+
+		setOpenSubmenus(newOpenSubmenus);
+	}, [location.pathname, menus, isPinned, isHovered]);
 
         const isPathMatch = (currentPath, targetPath) => {
                 if (!targetPath || targetPath === "#") return false;
@@ -457,7 +578,16 @@ export default function Navbar() {
 
         const isExpanded = isPinned || isHovered || isMobileMenuOpen;
 
-        const permissions = Method.getPermissions();
+        const [permissions, setPermissionsState] = useState(() => Method.getPermissions());
+
+        useEffect(() => {
+                const handlePermissionsUpdate = (e) => {
+                        const perms = e.detail || Method.getPermissions();
+                        setPermissionsState(perms);
+                };
+                window.addEventListener("permissionsUpdated", handlePermissionsUpdate);
+                return () => window.removeEventListener("permissionsUpdated", handlePermissionsUpdate);
+        }, []);
         const canViewMenu = (path) => Method.canAccess(path, "view");
         const filterMenusByPermission = (menuList) => {
                 if (!permissions.length) {
@@ -507,9 +637,14 @@ export default function Navbar() {
                                                         {isPinned ? "adjust" : "circle"}
                                                 </span>
                                         </div>
-                                        <div className="mobile-close-btn" onClick={() => setIsMobileMenuOpen(false)}>
-                                                <span className="material-symbols-outlined">close</span>
-                                        </div>
+
+                                        <button
+                                                type="button"
+                                                className="sidebar-close-btn mobile-close-btn"
+                                                onClick={() => setIsMobileMenuOpen(false)}
+                                        >
+                                                <span className="material-symbols-outlined fs-20">close</span>
+                                        </button>
                                 </div>
 
                                 <nav className="navbar-center">

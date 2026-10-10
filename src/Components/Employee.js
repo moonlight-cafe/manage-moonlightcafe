@@ -102,10 +102,11 @@ function Employees() {
         }, [isSidebarOpen]);
 
         useEffect(() => {
-                if (searchText.trim() === "") {
-                        fetchEmployees(1, true, { [sortBy]: sortOrder }, {}, {}, "");
-                }
-        }, [searchText]);
+		const timer = setTimeout(() => {
+			fetchEmployees(1, true, { [sortBy]: sortOrder }, {}, {}, searchText.trim());
+		}, 500);
+		return () => clearTimeout(timer);
+	}, [searchText]);
 
         const showPopup = (message, type = "error") =>
                 Method.showPopup(setPopup, popupTimer, message, type);
@@ -383,7 +384,7 @@ function Employees() {
                                                         </div>
                                                         {canAdd && (
                                                                 <button
-                                                                        className="main-btn"
+                                                                        className="main-btn desktop-add-btn"
                                                                         onClick={() => {
                                                                                 setIsSidebarOpen(true);
                                                                         }}
@@ -394,6 +395,22 @@ function Employees() {
                                                         )}
                                                 </div>
                                         </div>
+
+                                        {/* Mobile Floating Action Button (FAB) */}
+                                        {canAdd && (
+                                                <div className="mobile-fab-container">
+                                                        <button
+                                                                className="mobile-fab-btn"
+                                                                onClick={() => {
+                                                                        setIsSidebarOpen(true);
+                                                                }}
+                                                                disabled={loading}
+                                                                title="Add Employee"
+                                                        >
+                                                                <span className="material-symbols-outlined">add</span>
+                                                        </button>
+                                                </div>
+                                        )}
 
                                         <div className="common-table-container">
                                                 <div className="common-table-wrapper">

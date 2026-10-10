@@ -1,34 +1,43 @@
-
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef, useState, useCallback } from "react";
 import { Navbar, Method, API } from "../config/Init.js";
+import "./Permissions.css";
 
 function Permissions() {
         const [permissions, setPermissions] = useState([]);
         const [userRoles, setUserRoles] = useState([]);
         const [employees, setEmployees] = useState([]);
-        const [menus, setMenus] = useState([]);
         const [loading, setLoading] = useState(false);
         const [popup, setPopup] = useState({ message: "", type: "", visible: false });
         const popupTimer = useRef(null);
         const [searchText, setSearchText] = useState("");
         const [selectedRoleId, setSelectedRoleId] = useState("");
         const [selectedEmployeeId, setSelectedEmployeeId] = useState("");
-        const filterRoleDropdownRef = useRef(null);
-        const filterEmployeeDropdownRef = useRef(null);
+        const desktopRoleDropdownRef = useRef(null);
+        const desktopEmployeeDropdownRef = useRef(null);
+        const mobileRoleDropdownRef = useRef(null);
+        const mobileEmployeeDropdownRef = useRef(null);
 
-        const [filterRoleDropdownOpen, setFilterRoleDropdownOpen] = useState(false);
-        const [filterEmployeeDropdownOpen, setFilterEmployeeDropdownOpen] = useState(false);
+        const [desktopRoleDropdownOpen, setDesktopRoleDropdownOpen] = useState(false);
+        const [desktopEmployeeDropdownOpen, setDesktopEmployeeDropdownOpen] = useState(false);
+        const [mobileRoleDropdownOpen, setMobileRoleDropdownOpen] = useState(false);
+        const [mobileEmployeeDropdownOpen, setMobileEmployeeDropdownOpen] = useState(false);
 
         const showPopup = (message, type = "error") =>
                 Method.showPopup(setPopup, popupTimer, message, type);
 
         useEffect(() => {
                 const handleClickOutside = (e) => {
-                        if (filterRoleDropdownRef.current && !filterRoleDropdownRef.current.contains(e.target)) {
-                                setFilterRoleDropdownOpen(false);
+                        if (desktopRoleDropdownRef.current && !desktopRoleDropdownRef.current.contains(e.target)) {
+                                setDesktopRoleDropdownOpen(false);
                         }
-                        if (filterEmployeeDropdownRef.current && !filterEmployeeDropdownRef.current.contains(e.target)) {
-                                setFilterEmployeeDropdownOpen(false);
+                        if (desktopEmployeeDropdownRef.current && !desktopEmployeeDropdownRef.current.contains(e.target)) {
+                                setDesktopEmployeeDropdownOpen(false);
+                        }
+                        if (mobileRoleDropdownRef.current && !mobileRoleDropdownRef.current.contains(e.target)) {
+                                setMobileRoleDropdownOpen(false);
+                        }
+                        if (mobileEmployeeDropdownRef.current && !mobileEmployeeDropdownRef.current.contains(e.target)) {
+                                setMobileEmployeeDropdownOpen(false);
                         }
                 };
 
@@ -65,33 +74,35 @@ function Permissions() {
                 fetchDropdowns();
         }, []);
 
-        useEffect(() => {
-                const loadPermissions = async () => {
-                        if (!selectedRoleId) {
-                                setPermissions([]);
-                                return;
+        const loadPermissions = useCallback(async (roleId = selectedRoleId, employeeId = selectedEmployeeId) => {
+                if (!roleId) {
+                        setPermissions([]);
+                        return;
+                }
+
+                setLoading(true);
+                try {
+                        const payload = employeeId
+                                ? { roleid: roleId, employeeid: employeeId }
+                                : { roleid: roleId };
+                        const res = await API.ListPermissions(payload);
+
+                        if (res?.status === 200) {
+                                const data = Array.isArray(res.data) ? res.data : res.data?.data || [];
+                                setPermissions(data);
+                        } else {
+                                showPopup(res?.message || "Failed to load permissions");
                         }
-
-                        setLoading(true);
-                        try {
-                                const payload = selectedEmployeeId
-                                        ? { roleid: selectedRoleId, employeeid: selectedEmployeeId }
-                                        : { roleid: selectedRoleId };
-                                const res = await API.ListPermissions(payload);
-
-                                if (res?.status === 200) {
-                                        const data = Array.isArray(res.data) ? res.data : res.data?.data || [];
-                                        setPermissions(data);
-                                } else {
-                                        showPopup(res?.message || "Failed to load permissions");
-                                }
-                        } finally {
-                                setLoading(false);
-                        }
-                };
-
-                loadPermissions();
+                } catch (err) {
+                        showPopup("Failed to load permissions");
+                } finally {
+                        setLoading(false);
+                }
         }, [selectedRoleId, selectedEmployeeId]);
+
+        useEffect(() => {
+                loadPermissions(selectedRoleId, selectedEmployeeId);
+        }, [selectedRoleId, selectedEmployeeId, loadPermissions]);
 
         const applyViewDependency = (item, field, nextValue) => {
                 const updated = { ...item, [field]: nextValue };
@@ -112,7 +123,8 @@ function Permissions() {
         const togglePermission = (id, field) => {
                 setPermissions((prev) =>
                         prev.map((p) => {
-                                if (p._id !== id) return p;
+                                const key = p._id || p.menu_id;
+                                if (key !== id && p._id !== id && p.menu_id !== id) return p;
                                 const nextValue = p[field] === 1 ? 0 : 1;
                                 return applyViewDependency(p, field, nextValue);
                         })
@@ -132,33 +144,45 @@ function Permissions() {
                                 employeeid: selectedEmployeeId || undefined,
                                 permissions: permissions.map((p) => ({
                                         roleid: selectedRoleId,
-                                        employeeid: selectedEmployeeId || p.employeeid,
+                                        employeeid: selectedEmployeeId || undefined,
                                         menu_name: p.menu_name,
                                         menu_alias: p.menu_alias,
                                         menu_id: p.menu_id,
-                                        view: p.view,
-                                        insert: p.insert,
-                                        update: p.update,
-                                        delete: p.delete,
+                                        view: p.view ? 1 : 0,
+                                        insert: p.insert ? 1 : 0,
+                                        update: p.update ? 1 : 0,
+                                        delete: p.delete ? 1 : 0,
                                 })),
                         };
 
                         const res = await API.AddUpdatePermissions(payload);
                         if (res?.status === 200) {
                                 showPopup(res.message || "Permissions updated", "success");
+                                try {
+                                        await API.LoginData();
+                                } catch (e) {}
                         } else {
                                 showPopup(res?.message || "Failed to update permissions");
                         }
+                } catch (err) {
+                        showPopup("Failed to update permissions");
                 } finally {
                         setLoading(false);
                 }
         };
 
         const handleReset = () => {
-                setSelectedRoleId("");
-                setSelectedEmployeeId("");
                 setSearchText("");
-                setPermissions([]);
+                setDesktopRoleDropdownOpen(false);
+                setDesktopEmployeeDropdownOpen(false);
+                setMobileRoleDropdownOpen(false);
+                setMobileEmployeeDropdownOpen(false);
+
+                if (selectedRoleId) {
+                        loadPermissions(selectedRoleId, selectedEmployeeId);
+                } else {
+                        setPermissions([]);
+                }
         };
 
         const filteredPermissions = permissions.filter((p) => {
@@ -170,15 +194,16 @@ function Permissions() {
                 );
         });
 
-        const filteredIds = new Set(filteredPermissions.map((p) => p._id));
         const isColumnChecked = (field) =>
                 filteredPermissions.length > 0 && filteredPermissions.every((p) => p[field] === 1);
 
         const toggleColumn = (field) => {
                 const next = isColumnChecked(field) ? 0 : 1;
+                const visibleKeySet = new Set(filteredPermissions.map((p) => p._id || p.menu_id));
                 setPermissions((prev) =>
                         prev.map((p) => {
-                                if (!filteredIds.has(p._id)) return p;
+                                const key = p._id || p.menu_id;
+                                if (!visibleKeySet.has(key)) return p;
                                 return applyViewDependency(p, field, next);
                         })
                 );
@@ -187,7 +212,8 @@ function Permissions() {
         const toggleRow = (id) => {
                 setPermissions((prev) =>
                         prev.map((p) => {
-                                if (p._id !== id) return p;
+                                const key = p._id || p.menu_id;
+                                if (key !== id && p._id !== id && p.menu_id !== id) return p;
                                 const allOn = p.view === 1 && p.insert === 1 && p.update === 1 && p.delete === 1;
                                 const next = allOn ? 0 : 1;
                                 return { ...p, view: next, insert: next, update: next, delete: next };
@@ -197,7 +223,7 @@ function Permissions() {
 
         const selectedRole = userRoles.find((r) => r._id === selectedRoleId);
         const filteredEmployees = selectedRole
-                ? employees.filter((emp) => emp.role === selectedRole.role)
+                ? employees.filter((emp) => emp.role === selectedRole.role || (emp.roleid && emp.roleid.toString() === selectedRoleId.toString()))
                 : [];
         const roleDropdownOptions = [
                 { value: "", label: "-- Select Role --" },
@@ -214,127 +240,236 @@ function Permissions() {
                 if (!stillValid) setSelectedEmployeeId("");
         }, [filteredEmployees, selectedEmployeeId]);
 
+        const renderCheckbox = (checked, onChange, disabled = false) => (
+                <label className={`premium-checkbox-wrapper ${disabled ? "disabled" : ""}`} style={{ padding: 0, gap: 0, margin: 0 }}>
+                        <input
+                                type="checkbox"
+                                className="premium-checkbox-input"
+                                checked={!!checked}
+                                onChange={onChange}
+                                disabled={disabled}
+                        />
+                        <span className="premium-checkbox-tile">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" className="premium-check-svg">
+                                        <polyline points="4 12 9 17 20 6"></polyline>
+                                </svg>
+                        </span>
+                </label>
+        );
+
         return (
                 <>
                         <Navbar />
                         <div className="common-tbl-comtainer">
                                 <div className="common-tbl-box user-not-select">
-                                        <div className="common-tbl-header">
-                                                <h2 className="common-tbl-title">Permissions</h2>
-                                                <div className="common-tbl-right-section">
-                                                        <div className="form-group" ref={filterRoleDropdownRef}>
-                                                                <div className="custom-dropdown">
-                                                                        <div
-                                                                                className="custom-dropdown-selected"
-                                                                                onClick={(e) => {
-                                                                                        e.stopPropagation();
-                                                                                        setFilterRoleDropdownOpen((p) => !p);
-                                                                                        setFilterEmployeeDropdownOpen(false);
-                                                                                }}
-                                                                        >
-                                                                                <span className="main-color">
-                                                                                        {selectedRoleId
-                                                                                                ? userRoles.find((r) => r._id === selectedRoleId)?.role
-                                                                                                : "-- Select Role --"}
-                                                                                </span>
+					<div className="common-tbl-header">
+						<h2 className="common-tbl-title">Permissions</h2>
+						<div className="common-tbl-right-section">
+							<div className="permissions-desktop-dropdowns">
+								<div className="permissions-desktop-filter-item" ref={desktopRoleDropdownRef}>
+									<div className="custom-dropdown">
+										<div
+											className="custom-dropdown-selected"
+											onClick={(e) => {
+												e.stopPropagation();
+												setDesktopRoleDropdownOpen((p) => !p);
+												setDesktopEmployeeDropdownOpen(false);
+											}}
+										>
+											<span className="main-color">
+												{selectedRoleId
+													? userRoles.find((r) => r._id === selectedRoleId)?.role
+													: "-- Select Role --"}
+											</span>
 
-                                                                                <span
-                                                                                        className="material-symbols-outlined fs-20 arrow"
-                                                                                        style={{
-                                                                                                transform: filterRoleDropdownOpen ? "rotate(-90deg)" : "rotate(90deg)",
-                                                                                                transition: "transform 0.3s ease",
-                                                                                                color: "#47d9a8",
-                                                                                        }}
-                                                                                >
-                                                                                        keyboard_arrow_right
-                                                                                </span>
-                                                                        </div>
+											<span
+												className="material-symbols-outlined fs-20 arrow"
+												style={{
+													transform: desktopRoleDropdownOpen ? "rotate(-90deg)" : "rotate(90deg)",
+													transition: "transform 0.3s ease",
+													color: "#47d9a8",
+												}}
+											>
+												keyboard_arrow_right
+											</span>
+										</div>
 
-                                                                        {filterRoleDropdownOpen && (
-                                                                                <div onClick={(e) => e.stopPropagation()}>
-                                                                                        {Method.renderDropdownOptions({
-                                                                                                options: roleDropdownOptions,
-                                                                                                activeValue: selectedRoleId,
-                                                                                                onSelect: (roleId) => {
-                                                                                                        setSelectedRoleId(roleId);
-                                                                                                        setSelectedEmployeeId("");
-                                                                                                        setFilterRoleDropdownOpen(false);
-                                                                                                }
-                                                                                        })}
-                                                                                </div>
-                                                                        )}
-                                                                </div>
-                                                        </div>
+										{desktopRoleDropdownOpen && (
+											<div onClick={(e) => e.stopPropagation()}>
+												{Method.renderDropdownOptions({
+													options: roleDropdownOptions,
+													activeValue: selectedRoleId,
+													onSelect: (roleId) => {
+														setSelectedRoleId(roleId);
+														setSelectedEmployeeId("");
+														setDesktopRoleDropdownOpen(false);
+													}
+												})}
+											</div>
+										)}
+									</div>
+								</div>
 
-                                                        <div className="form-group" ref={filterEmployeeDropdownRef}>
-                                                                <div className="custom-dropdown">
-                                                                        <div
-                                                                                className="custom-dropdown-selected"
-                                                                                onClick={(e) => {
-                                                                                        e.stopPropagation();
-                                                                                        setFilterEmployeeDropdownOpen((p) => !p);
-                                                                                        setFilterRoleDropdownOpen(false);
-                                                                                }}
-                                                                        >
-                                                                                <span className="main-color">
-                                                                                        {selectedEmployeeId
-                                                                                                ? filteredEmployees.find((emp) => emp._id === selectedEmployeeId)?.name
-                                                                                                : "-- Select Employee --"}
-                                                                                </span>
+								<div className="permissions-desktop-filter-item" ref={desktopEmployeeDropdownRef}>
+									<div className="custom-dropdown">
+										<div
+											className="custom-dropdown-selected"
+											onClick={(e) => {
+												e.stopPropagation();
+												setDesktopEmployeeDropdownOpen((p) => !p);
+												setDesktopRoleDropdownOpen(false);
+											}}
+										>
+											<span className="main-color">
+												{selectedEmployeeId
+													? filteredEmployees.find((emp) => emp._id === selectedEmployeeId)?.name
+													: "-- Select Employee --"}
+											</span>
 
-                                                                                <span
-                                                                                        className="material-symbols-outlined fs-20 arrow"
-                                                                                        style={{
-                                                                                                transform: filterEmployeeDropdownOpen ? "rotate(-90deg)" : "rotate(90deg)",
-                                                                                                transition: "transform 0.3s ease",
-                                                                                                color: "#47d9a8",
-                                                                                        }}
-                                                                                >
-                                                                                        keyboard_arrow_right
-                                                                                </span>
-                                                                        </div>
+											<span
+												className="material-symbols-outlined fs-20 arrow"
+												style={{
+													transform: desktopEmployeeDropdownOpen ? "rotate(-90deg)" : "rotate(90deg)",
+													transition: "transform 0.3s ease",
+													color: "#47d9a8",
+												}}
+											>
+												keyboard_arrow_right
+											</span>
+										</div>
 
-                                                                        {filterEmployeeDropdownOpen && (
-                                                                                <div onClick={(e) => e.stopPropagation()}>
-                                                                                        {Method.renderDropdownOptions({
-                                                                                                options: employeeDropdownOptions,
-                                                                                                activeValue: selectedEmployeeId,
-                                                                                                onSelect: (employeeId) => {
-                                                                                                        setSelectedEmployeeId(employeeId);
-                                                                                                        setFilterEmployeeDropdownOpen(false);
-                                                                                                }
-                                                                                        })}
-                                                                                </div>
-                                                                        )}
-                                                                </div>
-                                                        </div>
-                                                        <div className="global-search-container">
-                                                                <span className="material-symbols-outlined search-icon">search</span>
-                                                                <input
-                                                                        type="text"
-                                                                        placeholder="Search"
-                                                                        className="search-input"
-                                                                        maxLength={50}
-                                                                        value={searchText}
-                                                                        onChange={(e) => setSearchText(e.target.value)}
-                                                                />
-                                                        </div>
-                                                        <button
-                                                                className="main-btn"
-                                                                onClick={handleReset}
-                                                                disabled={loading}
-                                                        >
-                                                                Reset
-                                                        </button>
-                                                        <button
-                                                                className="main-btn"
-                                                                onClick={handleSavePermissions}
-                                                                disabled={loading || (!selectedRoleId && !selectedEmployeeId)}
-                                                        >
-                                                                Save
-                                                        </button>
-                                                </div>
-                                        </div>
+										{desktopEmployeeDropdownOpen && (
+											<div onClick={(e) => e.stopPropagation()}>
+												{Method.renderDropdownOptions({
+													options: employeeDropdownOptions,
+													activeValue: selectedEmployeeId,
+													onSelect: (employeeId) => {
+														setSelectedEmployeeId(employeeId);
+														setDesktopEmployeeDropdownOpen(false);
+													}
+												})}
+											</div>
+										)}
+									</div>
+								</div>
+							</div>
+
+							<div className="global-search-container">
+								<span className="material-symbols-outlined search-icon">search</span>
+								<input
+									type="text"
+									placeholder="Search"
+									className="search-input"
+									maxLength={50}
+									value={searchText}
+									onChange={(e) => setSearchText(e.target.value)}
+								/>
+							</div>
+							<button
+								className="main-btn"
+								onClick={handleReset}
+								disabled={loading}
+							>
+								Reset
+							</button>
+							<button
+								className="main-btn"
+								onClick={handleSavePermissions}
+								disabled={loading || (!selectedRoleId && !selectedEmployeeId)}
+							>
+								Save
+							</button>
+						</div>
+					</div>
+
+					<div className="permissions-filter-bar permissions-mobile-filter-bar">
+						<div className="permissions-filter-item" ref={mobileRoleDropdownRef}>
+							<div className="custom-dropdown">
+								<div
+									className="custom-dropdown-selected"
+									onClick={(e) => {
+										e.stopPropagation();
+										setMobileRoleDropdownOpen((p) => !p);
+										setMobileEmployeeDropdownOpen(false);
+									}}
+								>
+									<span className="main-color">
+										{selectedRoleId
+											? userRoles.find((r) => r._id === selectedRoleId)?.role
+											: "-- Select Role --"}
+									</span>
+
+									<span
+										className="material-symbols-outlined fs-20 arrow"
+										style={{
+											transform: mobileRoleDropdownOpen ? "rotate(-90deg)" : "rotate(90deg)",
+											transition: "transform 0.3s ease",
+											color: "#47d9a8",
+										}}
+									>
+										keyboard_arrow_right
+									</span>
+								</div>
+
+								{mobileRoleDropdownOpen && (
+									<div onClick={(e) => e.stopPropagation()}>
+										{Method.renderDropdownOptions({
+											options: roleDropdownOptions,
+											activeValue: selectedRoleId,
+											onSelect: (roleId) => {
+												setSelectedRoleId(roleId);
+												setSelectedEmployeeId("");
+												setMobileRoleDropdownOpen(false);
+											}
+										})}
+									</div>
+								)}
+							</div>
+						</div>
+
+						<div className="permissions-filter-item" ref={mobileEmployeeDropdownRef}>
+							<div className="custom-dropdown">
+								<div
+									className="custom-dropdown-selected"
+									onClick={(e) => {
+										e.stopPropagation();
+										setMobileEmployeeDropdownOpen((p) => !p);
+										setMobileRoleDropdownOpen(false);
+									}}
+								>
+									<span className="main-color">
+										{selectedEmployeeId
+											? filteredEmployees.find((emp) => emp._id === selectedEmployeeId)?.name
+											: "-- Select Employee --"}
+									</span>
+
+									<span
+										className="material-symbols-outlined fs-20 arrow"
+										style={{
+											transform: mobileEmployeeDropdownOpen ? "rotate(-90deg)" : "rotate(90deg)",
+											transition: "transform 0.3s ease",
+											color: "#47d9a8",
+										}}
+									>
+										keyboard_arrow_right
+									</span>
+								</div>
+
+								{mobileEmployeeDropdownOpen && (
+									<div onClick={(e) => e.stopPropagation()}>
+										{Method.renderDropdownOptions({
+											options: employeeDropdownOptions,
+											activeValue: selectedEmployeeId,
+											onSelect: (employeeId) => {
+												setSelectedEmployeeId(employeeId);
+												setMobileEmployeeDropdownOpen(false);
+											}
+										})}
+									</div>
+								)}
+							</div>
+						</div>
+					</div>
 
                                         <div className="common-table-container">
                                                 <div className="common-table-wrapper">
@@ -345,128 +480,71 @@ function Permissions() {
                                                                                 <th className="common-table-th">
                                                                                         <div className="th-content">
                                                                                                 <span className="mr-5">View</span>
-                                                                                                <div className="custom-checkbox-wrapper">
-                                                                                                        <input
-                                                                                                                type="checkbox"
-                                                                                                                className="common-input-text"
-                                                                                                                checked={isColumnChecked("view")}
-                                                                                                                onChange={() => toggleColumn("view")}
-                                                                                                        />
-                                                                                                </div>
+                                                                                                {renderCheckbox(isColumnChecked("view"), () => toggleColumn("view"))}
                                                                                         </div>
                                                                                 </th>
                                                                                 <th className="common-table-th">
                                                                                         <div className="th-content">
                                                                                                 <span className="mr-5">Add</span>
-                                                                                                <div className="custom-checkbox-wrapper">
-                                                                                                        <input
-                                                                                                                type="checkbox"
-                                                                                                                className="common-input-text"
-                                                                                                                checked={isColumnChecked("insert")}
-                                                                                                                onChange={() => toggleColumn("insert")}
-                                                                                                        />
-                                                                                                </div>
+                                                                                                {renderCheckbox(isColumnChecked("insert"), () => toggleColumn("insert"))}
                                                                                         </div>
                                                                                 </th>
                                                                                 <th className="common-table-th">
                                                                                         <div className="th-content">
                                                                                                 <span className="mr-5">Update</span>
-                                                                                                <div className="custom-checkbox-wrapper">
-                                                                                                        <input
-                                                                                                                type="checkbox"
-                                                                                                                className="common-input-text"
-                                                                                                                checked={isColumnChecked("update")}
-                                                                                                                onChange={() => toggleColumn("update")}
-                                                                                                        />
-                                                                                                </div>
+                                                                                                {renderCheckbox(isColumnChecked("update"), () => toggleColumn("update"))}
                                                                                         </div>
                                                                                 </th>
                                                                                 <th className="common-table-th">
                                                                                         <div className="th-content">
                                                                                                 <span className="mr-5">Delete</span>
-                                                                                                <div className="custom-checkbox-wrapper">
-                                                                                                        <input
-                                                                                                                type="checkbox"
-                                                                                                                className="common-input-text"
-                                                                                                                checked={isColumnChecked("delete")}
-                                                                                                                onChange={() => toggleColumn("delete")}
-                                                                                                        />
-                                                                                                </div>
+                                                                                                {renderCheckbox(isColumnChecked("delete"), () => toggleColumn("delete"))}
                                                                                         </div>
                                                                                 </th>
                                                                         </tr>
                                                                 </thead>
                                                                 <tbody>
                                                                         {filteredPermissions.length > 0 ? (
-                                                                                filteredPermissions.map((item) => (
-                                                                                        <tr key={item._id}>
-                                                                                                <td className="common-table-td">
-                                                                                                        <div className="th-content">
-                                                                                                                <span className="mr-5">{item.menu_name}</span>
-                                                                                                                <div className="custom-checkbox-wrapper">
-                                                                                                                        <input
-                                                                                                                                type="checkbox"
-                                                                                                                                className="common-input-text"
-                                                                                                                                checked={item.view === 1 && item.insert === 1 && item.update === 1 && item.delete === 1}
-                                                                                                                                onChange={() => toggleRow(item._id)}
-                                                                                                                        />
+                                                                                filteredPermissions.map((item) => {
+                                                                                        const itemKey = item._id || item.menu_id;
+                                                                                        return (
+                                                                                                <tr key={itemKey}>
+                                                                                                        <td className="common-table-td">
+                                                                                                                <div className="th-content">
+                                                                                                                        <span className="mr-5">{item.menu_name}</span>
+                                                                                                                        {renderCheckbox(
+                                                                                                                                item.view === 1 && item.insert === 1 && item.update === 1 && item.delete === 1,
+                                                                                                                                () => toggleRow(itemKey)
+                                                                                                                        )}
                                                                                                                 </div>
-                                                                                                        </div>
-                                                                                                </td>
-                                                                                                <td className="common-table-td">
-                                                                                                        {Method.tooltip(
-                                                                                                                item.view === 1 ? "Allowed" : "Denied",
-                                                                                                                <div className="custom-checkbox-wrapper">
-                                                                                                                        <input
-                                                                                                                                type="checkbox"
-                                                                                                                                className="common-input-text"
-                                                                                                                                checked={item.view}
-                                                                                                                                onChange={() => togglePermission(item._id, "view")}
-                                                                                                                        />
-                                                                                                                </div>
-                                                                                                        )}
-                                                                                                </td>
-                                                                                                <td className="common-table-td">
-                                                                                                        {Method.tooltip(
-                                                                                                                item.insert === 1 ? "Allowed" : "Denied",
-                                                                                                                <div className="custom-checkbox-wrapper">
-                                                                                                                        <input
-                                                                                                                                type="checkbox"
-                                                                                                                                checked={item.insert}
-                                                                                                                                className="common-input-text"
-                                                                                                                                onChange={() => togglePermission(item._id, "insert")}
-                                                                                                                        />
-                                                                                                                </div>
-                                                                                                        )}
-                                                                                                </td>
-                                                                                                <td className="common-table-td">
-                                                                                                        {Method.tooltip(
-                                                                                                                item.update === 1 ? "Allowed" : "Denied",
-                                                                                                                <div className="custom-checkbox-wrapper">
-                                                                                                                        <input
-                                                                                                                                type="checkbox"
-                                                                                                                                checked={item.update}
-                                                                                                                                className="common-input-text"
-                                                                                                                                onChange={() => togglePermission(item._id, "update")}
-                                                                                                                        />
-                                                                                                                </div>
-                                                                                                        )}
-                                                                                                </td>
-                                                                                                <td className="common-table-td">
-                                                                                                        {Method.tooltip(
-                                                                                                                item.delete === 1 ? "Allowed" : "Denied",
-                                                                                                                <div className="custom-checkbox-wrapper">
-                                                                                                                        <input
-                                                                                                                                type="checkbox"
-                                                                                                                                checked={item.delete}
-                                                                                                                                className="common-input-text"
-                                                                                                                                onChange={() => togglePermission(item._id, "delete")}
-                                                                                                                        />
-                                                                                                                </div>
-                                                                                                        )}
-                                                                                                </td>
-                                                                                        </tr>
-                                                                                ))
+                                                                                                        </td>
+                                                                                                        <td className="common-table-td">
+                                                                                                                {Method.tooltip(
+                                                                                                                        item.view === 1 ? "Allowed" : "Denied",
+                                                                                                                        renderCheckbox(item.view === 1, () => togglePermission(itemKey, "view"))
+                                                                                                                )}
+                                                                                                        </td>
+                                                                                                        <td className="common-table-td">
+                                                                                                                {Method.tooltip(
+                                                                                                                        item.insert === 1 ? "Allowed" : "Denied",
+                                                                                                                        renderCheckbox(item.insert === 1, () => togglePermission(itemKey, "insert"))
+                                                                                                                )}
+                                                                                                        </td>
+                                                                                                        <td className="common-table-td">
+                                                                                                                {Method.tooltip(
+                                                                                                                        item.update === 1 ? "Allowed" : "Denied",
+                                                                                                                        renderCheckbox(item.update === 1, () => togglePermission(itemKey, "update"))
+                                                                                                                )}
+                                                                                                        </td>
+                                                                                                        <td className="common-table-td">
+                                                                                                                {Method.tooltip(
+                                                                                                                        item.delete === 1 ? "Allowed" : "Denied",
+                                                                                                                        renderCheckbox(item.delete === 1, () => togglePermission(itemKey, "delete"))
+                                                                                                                )}
+                                                                                                        </td>
+                                                                                                </tr>
+                                                                                        );
+                                                                                })
                                                                         ) : (
                                                                                 <tr>
                                                                                         <td

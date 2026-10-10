@@ -136,10 +136,17 @@ function ReviewManager() {
         };
 
         const handleSearchKeyPress = (e) => {
-                if (e.key === "Enter") {
-                        listRating(1, true, { _id: -1 }, {}, {}, searchText.trim());
-                }
-        };
+		if (e.key === "Enter") {
+			listRating(1, true, { _id: -1 }, {}, {}, searchText.trim());
+		}
+	};
+
+	useEffect(() => {
+		const timer = setTimeout(() => {
+			listRating(1, true, { _id: -1 }, {}, {}, searchText.trim());
+		}, 500);
+		return () => clearTimeout(timer);
+	}, [searchText]);
 
         const handleSort = (key) => {
                 setSort((prev) => {
@@ -268,10 +275,22 @@ function ReviewManager() {
                                                                         </span>
                                                                 </button>
                                                         )}
-                                                        <button className="filter-btn" onClick={() => setIsSidebarOpen(true)} disabled={loading}>
+                                                        <button className="filter-btn desktop-filter-btn" onClick={() => setIsSidebarOpen(true)} disabled={loading}>
                                                                 <span className="material-symbols-outlined main-color fs-25 m-3">filter_alt</span>
                                                         </button>
                                                 </div>
+                                        </div>
+
+                                        {/* Mobile Floating Action Button (FAB) */}
+                                        <div className="mobile-fab-container">
+                                                <button
+                                                        className="mobile-fab-filter-btn"
+                                                        onClick={() => setIsSidebarOpen(true)}
+                                                        disabled={loading}
+                                                        title="Filter Reviews"
+                                                >
+                                                        <span className="material-symbols-outlined">filter_alt</span>
+                                                </button>
                                         </div>
 
                                         <div className="common-table-container">

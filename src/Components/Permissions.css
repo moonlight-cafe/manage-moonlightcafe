@@ -1,0 +1,117 @@
+/* Permissions / User Rights Page Styles */
+
+/* Desktop Header Dropdowns */
+.permissions-desktop-dropdowns {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.permissions-desktop-filter-item {
+    min-width: 175px;
+    position: relative;
+}
+
+.permissions-desktop-filter-item:first-child {
+    z-index: 102;
+}
+
+.permissions-desktop-filter-item:last-child {
+    z-index: 101;
+}
+
+.permissions-desktop-filter-item .form-group {
+    margin: 0 !important;
+}
+
+.permissions-desktop-filter-item .custom-dropdown-selected {
+    background: rgba(0, 0, 0, 0.35);
+    border: 1px solid rgba(71, 217, 168, 0.35);
+    border-radius: 8px;
+    padding: 6px 12px;
+    height: 38px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    cursor: pointer;
+    font-size: 13px;
+}
+
+.permissions-desktop-filter-item .custom-dropdown-list {
+    z-index: 1000 !important;
+}
+
+/* Mobile Filter Bar Default */
+.permissions-mobile-filter-bar {
+    display: none;
+}
+
+/* Media Queries */
+@media (min-width: 769px) {
+    .permissions-desktop-dropdowns {
+        display: flex !important;
+    }
+    .permissions-mobile-filter-bar {
+        display: none !important;
+    }
+}
+
+@media (max-width: 768px) {
+    .permissions-desktop-dropdowns {
+        display: none !important;
+    }
+
+    .permissions-mobile-filter-bar {
+        display: flex !important;
+        flex-direction: column;
+        gap: 10px;
+        padding: 10px;
+        margin-bottom: 10px;
+        background: rgba(71, 217, 168, 0.04);
+        border: 1px solid rgba(71, 217, 168, 0.2);
+        border-radius: 12px;
+        backdrop-filter: blur(8px);
+        position: relative;
+        z-index: 100;
+    }
+
+    .permissions-filter-item {
+        width: 100%;
+        min-width: 100%;
+        position: relative;
+    }
+
+    .permissions-filter-item:first-child {
+        z-index: 102;
+    }
+
+    .permissions-filter-item:last-child {
+        z-index: 101;
+    }
+
+    .permissions-filter-item .custom-dropdown-selected {
+        background: rgba(0, 0, 0, 0.35);
+        border: 1px solid rgba(71, 217, 168, 0.35);
+        border-radius: 8px;
+        height: 36px;
+        padding: 6px 12px;
+        font-size: 13px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        cursor: pointer;
+    }
+
+    .permissions-filter-item .custom-dropdown-list {
+        z-index: 1000 !important;
+    }
+
+    .common-table th.sticky-col,
+    .common-table td.sticky-col {
+        position: sticky;
+        left: 0;
+        background: #15221d !important;
+        z-index: 2;
+        box-shadow: 2px 0 6px rgba(0, 0, 0, 0.4);
+    }
+}

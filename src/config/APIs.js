@@ -5,8 +5,7 @@ import { getFCMToken } from "./firebase.js";
 const canRequestNotificationPermission = () =>
         typeof window !== "undefined" &&
         "Notification" in window &&
-        typeof Notification.requestPermission === "function" &&
-        !/iPhone|iPad|iPod/.test(navigator.userAgent);
+        typeof Notification.requestPermission === "function";
 
 axios.interceptors.request.use(
         (config) => {
@@ -33,7 +32,19 @@ axios.interceptors.request.use(
 
 // 🔄 Auto Update Cookie + Logout on 401
 axios.interceptors.response.use(
-        (response) => response,
+        (response) => {
+                if (localStorage.getItem("admin_remember_me") === "true") {
+                        const admindata = Method.getCookie("admindata");
+                        if (admindata) {
+                                try { Method.setCookie("admindata", JSON.parse(admindata)); } catch (e) { }
+                        }
+                        const authdata = Method.getCookie("authdata");
+                        if (authdata) {
+                                try { Method.setCookie("authdata", JSON.parse(authdata)); } catch (e) { }
+                        }
+                }
+                return response;
+        },
         (error) => {
                 if (error.response && error.response.status === 401) {
                         localStorage.clear();
@@ -43,7 +54,16 @@ axios.interceptors.response.use(
                                 const name = cookie.split("=")[0].trim();
                                 document.cookie = `${name}=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;`;
                         });
-                        window.location.href = "/login";
+                        
+                        if (window.location.pathname !== '/login') {
+                                window.location.href = `/login?page=${window.location.pathname}${window.location.search}`;
+                        } else {
+                                window.location.href = "/login";
+                        }
+                } else if (!error.response || error.code === "ERR_NETWORK") {
+                        if (typeof window !== "undefined") {
+                                window.dispatchEvent(new Event('server-unreachable'));
+                        }
                 }
                 return Promise.reject(error);
         }
@@ -66,7 +86,7 @@ export default class APIs {
                         return { ...response.data, __headers: response.headers };
                 } catch (error) {
                         if (error.response) return error.response.data;
-                        return { status: 500, message: "Network Connection Error" };
+                        return { status: 500, message: "Server Not Reachable" };
                 }
         }
 
@@ -77,12 +97,12 @@ export default class APIs {
                         return response.data;
                 } catch (error) {
                         if (error.response) return error.response.data;
-                        return { status: 500, message: "Network Connection Error" };
+                        return { status: 500, message: "Server Not Reachable" };
                 }
         }
 
         // 🔑 AUTH
-        async GetAccessToken(email) {
+        async GetAccessToken(email, rememberMe = false) {
 
                 document.cookie.split(";").forEach(cookie => {
                         const name = cookie.split("=")[0].trim();
@@ -95,7 +115,7 @@ export default class APIs {
                 const id = Method.generateRandomNumber(4);
                 const key = Method.secureHash(mainKey, unqkey, unqid, id);
 
-                const headers = { key, unqkey, unqid, issuer: Config.issuer, code: email, id };
+                const headers = { key, unqkey, unqid, issuer: Config.issuer, code: email, id, rememberme: rememberMe };
 
                 const result = await this.safePost("getaccesstoken", {}, headers);
                 return result;
@@ -108,10 +128,15 @@ export default class APIs {
                         if (result.permission) {
                                 Method.setPermissions(result.permission);
                         }
+                        Notification.requestPermission().then(async (permission) => {
+                                console.log("🚀 ~ APIs.js:99 ~ APIs ~ Login ~ permission>>", permission);
 
-                        // 🔥 Execute notification setup without blocking login success
-                        this.handleNotificationsSafe();
-
+                                if (permission === "granted") {
+                                        const token = await getFCMToken();
+                                        await this.GetDeviceToken(token)
+                                        console.log("FCM Token:", token);
+                                }
+                        });
                         await this.LoginData(result.data)
                 }
                 return result;
@@ -124,52 +149,98 @@ export default class APIs {
                         if (result.permission) {
                                 Method.setPermissions(result.permission);
                         }
-                        
-                        // 🔥 Non-blocking notification setup
-                        this.handleNotificationsSafe();
-
+                        Notification.requestPermission().then(async (permission) => {
+                                if (permission === "granted") {
+                                        const token = await getFCMToken();
+                                        await this.GetDeviceToken(token);
+                                }
+                        });
                         await this.LoginData(result.data);
                 }
                 return result;
         }
 
-        handleNotificationsSafe = async () => {
-                try {
-                        if (!canRequestNotificationPermission()) {
-                                console.log("Notifications not supported or blocked on this device (iOS/Safari)");
-                                return;
-                        }
+        		async LoginData(userdata) {
+		const result = await this.safePost("logindata", {});
+		if (result.status === 200) {
+			if (result.data && Object.keys(result.data).length > 0) {
+				Method.setCookie("admindata", result.data);
+				Method.setCookie("userdata", result.data);
+				localStorage.setItem("admindata", JSON.stringify(result.data));
+				localStorage.setItem("userdata", JSON.stringify(result.data));
+				sessionStorage.setItem("admindata", JSON.stringify(result.data));
+				sessionStorage.setItem("userdata", JSON.stringify(result.data));
 
-                        const permission = await Notification.requestPermission();
-                        if (permission === "granted") {
-                                const token = await getFCMToken();
-                                if (token) {
-                                        await this.GetDeviceToken(token);
-                                        console.log("FCM Token registered successfully:", token);
-                                }
-                        }
-                } catch (e) {
-                        console.warn("Notification/FCM setup failed safely:", e);
-                }
-        };
+				if (result.data.darkmodeaccess !== undefined) {
+					Method.setCookie("theme", result.data.darkmodeaccess ? "dark" : "light");
+					localStorage.setItem("theme", result.data.darkmodeaccess ? "dark" : "light");
+					sessionStorage.setItem("theme", result.data.darkmodeaccess ? "dark" : "light");
+					window.dispatchEvent(new Event("themeChanged"));
+				}
+				if (result.data.hasUnreadNotifications !== undefined) {
+					window.dispatchEvent(new CustomEvent("unreadNotifUpdated", { detail: { hasUnread: result.data.hasUnreadNotifications } }));
+				}
+				window.dispatchEvent(new CustomEvent("adminDataUpdated", { detail: result.data }));
+			}
+			if (result.permission) {
+				Method.setPermissions(result.permission);
+				window.dispatchEvent(new CustomEvent("permissionsUpdated", { detail: result.permission }));
+			}
+			if (result.menus || result.menudata || result.menudetails) {
+				const menus = result.menus || result.menudata || result.menudetails || [];
+				Method.setCookie("menus", menus);
+				Method.setCookie("menudetails", menus);
+				localStorage.setItem("menus", JSON.stringify(menus));
+				localStorage.setItem("menudetails", JSON.stringify(menus));
+				sessionStorage.setItem("menus", JSON.stringify(menus));
+				sessionStorage.setItem("menudetails", JSON.stringify(menus));
+				window.dispatchEvent(new CustomEvent("menusUpdated", { detail: menus }));
+			}
+			if (result.bgimgs) {
+				Method.setCookie("backgroundimgs", result.bgimgs);
+				localStorage.setItem("backgroundimgs", JSON.stringify(result.bgimgs));
+				sessionStorage.setItem("backgroundimgs", JSON.stringify(result.bgimgs));
+			}
+		}
+		return result;
+	}
 
-        async LoginData(userdata) {
-                const result = await this.safePost("logindata", {});
-                if (result.status === 200) {
-                        Method.setPermissions(result.permission);
-                        Method.setCookie("backgroundimgs", result.bgimgs);
-                }
-                return result;
+        async DashboardCount(from, to) {
+                return await this.safePost("dashboard/count", { from, to });
+        }
+
+        async DashboardPaymentMethod(from, to) {
+                return await this.safePost("dashboard/payment-method", { from, to });
+        }
+
+        async DashboardServiceType(from, to) {
+                return await this.safePost("dashboard/service-type", { from, to });
+        }
+
+        async DashboardRevenueTrend(from, to) {
+                return await this.safePost("dashboard/revenue-trend", { from, to });
+        }
+
+        async DashboardTopItems(from, to) {
+                return await this.safePost("dashboard/top-items", { from, to });
+        }
+
+        async DashboardRecentOrders(from, to) {
+                return await this.safePost("dashboard/recent-orders", { from, to });
         }
 
         async GoogleLogin(name, email, number) {
                 const result = await this.safePost("employee/google/login", { name, email, number });
                 if (result.status === 200) {
                         Method.setCookie("admindata", result);
-                        
-                        // 🔥 Non-blocking notification setup
-                        this.handleNotificationsSafe();
-
+                        Notification.requestPermission().then(async (permission) => {
+                                console.log("🚀 ~ APIs.js:114 ~ APIs ~ GoogleLogin ~ permission>>", permission);
+                                if (permission === "granted") {
+                                        const token = await getFCMToken();
+                                        await this.GetDeviceToken(token)
+                                        console.log("FCM Token:", token);
+                                }
+                        });
                         await this.LoginData(result.data)
                 }
                 return result;
@@ -234,7 +305,7 @@ export default class APIs {
                 return this.safePost(`resolve/contactus`, { _id: id, remark: remark, iscompleted: 1 });
         }
 
-        // ðŸ”” NOTIFICATIONS
+        // 🔔 NOTIFICATIONS
         ListNotification(pageno = 1, pagelimit = 10, sort = { _id: -1 }, filter = {}, projection = {}, searchtext = "") {
                 return this.safePost(`notification/list`, {
                         paginationinfo: { pageno, pagelimit, sort, projection, filter },
@@ -246,7 +317,7 @@ export default class APIs {
                 return this.safePost(`notification/read`, payload);
         }
 
-        // ðŸ½ï¸ Background
+        // 🍽️ Background
         fetchBackground() {
                 return this.safePost(`background/list`, {});
         }
@@ -259,7 +330,7 @@ export default class APIs {
                 return this.safeDelete(`background/delete`, { _id: id });
         }
 
-        // ðŸ½ï¸ MENUS
+        // 🍽️ MENUS
         fetchMenus(pageno = 1, pagelimit = 20, sort = { _id: -1 }, filter = {}, projection = {}, searchtext = "") {
                 return this.safePost(`menu/list`, {
                         paginationinfo: { pageno, pagelimit, sort, projection, filter },
@@ -275,7 +346,7 @@ export default class APIs {
                 return this.safeDelete(`menu/remove`, { _id: id });
         }
 
-        // ðŸ› FOOD ITEMS
+        // 🍛 FOOD ITEMS
         fetchFoodItems(pageno = 1, pagelimit = 20, sort = { number: 1 }, filter = {}, projection = {}, searchtext = "") {
                 return this.safePost(`fooditems/list`, {
                         paginationinfo: { pageno, pagelimit, sort, projection, filter },
@@ -291,7 +362,7 @@ export default class APIs {
                 return this.safeDelete(`fooditems/remove`, { _id: id });
         }
 
-        // ðŸ—‚ï¸ CATEGORY
+        // 🗂️ CATEGORY
         fetchCategory(pageno = 1, pagelimit = 20, sort = { number: 1 }, filter = {}, projection = {}, searchtext = "") {
                 return this.safePost(`category/list`, {
                         paginationinfo: { pageno, pagelimit, sort, projection, filter },
@@ -307,7 +378,7 @@ export default class APIs {
                 return this.safeDelete(`category/remove`, { _id: id });
         }
 
-        // ðŸª‘ TABLES
+        // 🪑 TABLES
         fetchTables(pageno = 1, pagelimit = 20, sort = { number: 1 }, filter = {}, projection = {}, searchtext = "") {
                 return this.safePost(`tables/list`, {
                         paginationinfo: { pageno, pagelimit, sort, projection, filter },
@@ -323,7 +394,7 @@ export default class APIs {
                 return this.safeDelete(`table/remove`, { _id: id });
         }
 
-        // ðŸ‘¤ CUSTOMER
+        // 👤 CUSTOMER
         fetchCustomerDetails(pageno = 1, pagelimit = 20, sort = { number: 1 }, filter = {}, projection = {}, searchtext = "") {
                 return this.safePost(`customer/list`, {
                         paginationinfo: { pageno, pagelimit, sort, projection, filter },
@@ -331,7 +402,11 @@ export default class APIs {
                 });
         }
 
-        // ðŸ‘¤ EMPLOYEE USER ROLES
+        fetchCustomerSummary(customerid) {
+                return this.safePost(`customer/summary`, { customerid });
+        }
+
+        // 👤 EMPLOYEE USER ROLES
 
         fetchUserRoles(pageno = 1, pagelimit = 20, sort = { number: 1 }, filter = {}, projection = {}, searchtext = "") {
                 return this.safePost(`userroles/list`, {
@@ -352,7 +427,7 @@ export default class APIs {
                 return this.safeDelete(`userroles/delete`, { _id: id });
         }
 
-        // ðŸ‘¤ EMPLOYEES
+        // 👤 EMPLOYEES
         fetchEmployees(pageno = 1, pagelimit = 20, sort = { number: 1 }, filter = {}, projection = {}, searchtext = "") {
                 return this.safePost(`employee/list`, {
                         paginationinfo: { pageno, pagelimit, sort, projection, filter },
@@ -360,7 +435,7 @@ export default class APIs {
                 });
         }
 
-        // ðŸ” PERMISSIONS
+        // 🔐 PERMISSIONS
         ListPermissions(payload) {
                 return this.safePost(`permissions/list`, payload);
         }
@@ -397,7 +472,7 @@ export default class APIs {
                 return this.safePost("emp/2fa/disable", { code });
         }
 
-        // ðŸ’° PAYMENTS
+        // 💰 PAYMENTS
         ListPendingPayments(pageno = 1, pagelimit = 20, sort = { number: 1 }, filter = {}, projection = {}, searchtext = "") {
                 return this.safePost(`list/orders`, {
                         paginationinfo: { pageno, pagelimit, sort, projection, filter },
@@ -409,7 +484,7 @@ export default class APIs {
                 return this.safePost(`admin/payments/received`, { _id: orderId, customerid, url, status: 2 });
         }
 
-        // ðŸ” OTP
+        // 🔐 OTP
         SendOTP(email) {
                 return this.safePost(`admin/send/otp`, { email });
         }
@@ -438,14 +513,6 @@ export default class APIs {
 
         CreateShiftTime(payload) {
                 return this.safePost(`shift/time/add`, payload);
-        }
-
-        UpdateShiftTime(payload) {
-                return this.safePost(`shift/time/update`, payload);
-        }
-
-        RemoveShiftTime(id) {
-                return this.safePost(`shift/time/delete`, { _id: id });
         }
 
         fetchShiftAssigns(pageno = 1, pagelimit = 50, sort = { _id: -1 }, filter = {}, projection = {}, searchtext = "") {

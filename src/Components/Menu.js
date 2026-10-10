@@ -139,9 +139,12 @@ function MenuManager() {
         }, [isSidebarOpen, showPopup]);
 
         useEffect(() => {
-                const sortPayload = sort.order === 0 ? {} : { [sort.key]: sort.order };
-                fetchMenus(1, true, sortPayload);
-        }, [sort]);
+		const sortPayload = sort.order === 0 ? {} : { [sort.key]: sort.order };
+		const timer = setTimeout(() => {
+			fetchMenus(1, true, sortPayload, {}, {}, searchText.trim());
+		}, 500);
+		return () => clearTimeout(timer);
+	}, [sort, searchText]);
 
         const handleSearchKeyPress = (e) => {
                 if (e.key === "Enter") {
@@ -218,6 +221,9 @@ function MenuManager() {
 
                         if (response.status === 200) {
                                 showPopup(response.message || "Success", "success");
+				localStorage.removeItem("menus");
+				localStorage.removeItem("menudetails");
+				API.LoginData();
                                 setFormData({});
                                 setEditingId(null);
                                 setIsSidebarOpen(false);
@@ -248,6 +254,9 @@ function MenuManager() {
 
                         if (response.status === 200) {
                                 showPopup("Menu deleted successfully", "success");
+				localStorage.removeItem("menus");
+				localStorage.removeItem("menudetails");
+				API.LoginData();
                                 fetchMenus(1, true);
                         } else {
                                 showPopup(response.message || "Failed to delete");
@@ -301,6 +310,9 @@ function MenuManager() {
 
                                 if (response.status === 200) {
                                         showPopup("Status updated successfully", "success");
+				localStorage.removeItem("menus");
+				localStorage.removeItem("menudetails");
+				API.LoginData();
                                         // Update the status in the local state instead of refetching
                                         setMenus((prevMenus) =>
                                                 prevMenus.map((menu) =>
@@ -369,7 +381,7 @@ function MenuManager() {
                                                         </div>
                                                         {canAdd && (
                                                                 <button
-                                                                        className="main-btn"
+                                                                        className="main-btn desktop-add-btn"
                                                                         onClick={() => setIsSidebarOpen(true)}
                                                                         disabled={loading}
                                                                 >
@@ -378,6 +390,20 @@ function MenuManager() {
                                                         )}
                                                 </div>
                                         </div>
+
+                                        {/* Mobile Floating Action Button (FAB) */}
+                                        {canAdd && (
+                                                <div className="mobile-fab-container">
+                                                        <button
+                                                                className="mobile-fab-btn"
+                                                                onClick={() => setIsSidebarOpen(true)}
+                                                                disabled={loading}
+                                                                title="Add Menu"
+                                                        >
+                                                                <span className="material-symbols-outlined">add</span>
+                                                        </button>
+                                                </div>
+                                        )}
 
                                         <div className="common-table-container">
                                                 <div className="common-table-wrapper">

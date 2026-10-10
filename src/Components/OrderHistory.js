@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import './OrderHistory.css';
 import { useLocation, useNavigate } from "react-router-dom";
 import "react-day-picker/dist/style.css";
-import { Method, Navbar, API, Config } from "../config/Init.js"
+import { Method, Navbar, API, Config } from "../config/Init.js";
 
 const OrderHistory = () => {
         const location = useLocation();
@@ -18,7 +18,11 @@ const OrderHistory = () => {
         const [searchText, setSearchText] = useState("");
         const [serviceDropdownOpen, setServiceDropdownOpen] = useState(false);
         const [paymentDropdownOpen, setPaymentDropdownOpen] = useState(false);
-        const [isInitialLoad, setIsInitialLoad] = useState(true); // NEW: Track initial load
+        const [isInitialLoad, setIsInitialLoad] = useState(true);
+        const [viewingBillUrl, setViewingBillUrl] = useState(null);
+
+        const [sortBy, setSortBy] = useState("_id");
+        const [sortOrder, setSortOrder] = useState(-1);
 
         const serviceDropdownRef = useRef(null);
         const paymentDropdownRef = useRef(null);
@@ -61,13 +65,11 @@ const OrderHistory = () => {
                                 setPaymentDropdownOpen(false);
                         }
 
-                        // Close calendar on outside click with specific logic
                         if (
                                 calendarRef.current &&
                                 !calendarRef.current.contains(e.target) &&
                                 showCalendar
                         ) {
-                                // If only start date is selected (not complete range), reset the date
                                 if (dateRange.from && !dateRange.to) {
                                         setDateRange({ from: undefined, to: undefined });
                                 }
@@ -81,16 +83,23 @@ const OrderHistory = () => {
 
         const handleSearchKeyPress = (e) => {
                 if (e.key === "Enter") {
-                        setPage(1);
-                        fetchOrders(1, true, { _id: -1 }, filters, {}, searchText.trim());
+                        fetchOrders(1, true, { [sortBy]: sortOrder }, filters, {}, searchText.trim());
                 }
         };
 
-        // Clear search effect - MODIFIED to prevent initial load trigger
+        useEffect(() => {
+                if (isInitialLoad) return;
+                const timer = setTimeout(() => {
+                        setPage(1);
+                        fetchOrders(1, true, { [sortBy]: sortOrder }, filters, {}, searchText.trim());
+                }, 500);
+                return () => clearTimeout(timer);
+        }, [searchText]);
+
         useEffect(() => {
                 if (!isInitialLoad && searchText.trim() === "") {
                         setPage(1);
-                        fetchOrders(1, true, { _id: -1 }, filters, {}, "");
+                        fetchOrders(1, true, { [sortBy]: sortOrder }, filters, {}, "");
                 }
         }, [searchText, isInitialLoad]);
 
@@ -98,11 +107,10 @@ const OrderHistory = () => {
                 Method.showPopup(setPopup, popupTimer, message, type);
         };
 
-        const fetchOrders = async (pageno = page, reset = false, sort = { _id: -1 }, filter = {}, projection = {}, searchtext = "") => {
+        const fetchOrders = async (pageno = page, reset = false, sort = { [sortBy]: sortOrder }, filter = {}, projection = {}, searchtext = "") => {
                 if (loading) return;
                 try {
                         setLoading(true);
-                        console.log("🚀 ~ OrderHistory.js:108 ~ fetchOrders ~ filter>>", filter);
                         const response = await API.ListPendingPayments(pageno, 20, sort, filter, projection, searchtext);
 
                         if (response.status === 200) {
@@ -135,11 +143,30 @@ const OrderHistory = () => {
                 }
         };
 
-        // MODIFIED: Initial load with location state - single API call
+        const handleSort = (field) => {
+                let newOrder = 1;
+                let newSortBy = field;
+
+                if (sortBy === field) {
+                        if (sortOrder === 1) {
+                                newOrder = -1;
+                        } else if (sortOrder === -1) {
+                                newOrder = 0;
+                                newSortBy = "";
+                        }
+                }
+
+                setSortBy(newSortBy);
+                setSortOrder(newOrder);
+
+                const sortPayload = newOrder === 0 ? {} : { [newSortBy]: newOrder };
+                fetchOrders(1, true, sortPayload, filters, {}, searchText.trim());
+        };
+
+        // Initial load with location state
         useEffect(() => {
                 const initialFilters = {};
 
-                // Check if there's location state
                 if (location.state) {
                         const { id, customername, orderid } = location.state;
 
@@ -151,19 +178,13 @@ const OrderHistory = () => {
                                 initialFilters._id = orderid;
                         }
 
-                        // Clear location state
                         navigate(location.pathname, { replace: true, state: null });
                 }
 
-                // Set filters first
                 setFilters(initialFilters);
-
-                // Make single API call with proper filters
                 fetchOrders(1, true, { _id: -1 }, initialFilters, {}, "");
-
-                // Mark initial load as complete
                 setIsInitialLoad(false);
-        }, []); // Empty dependency array - only run once on mount
+        }, []);
 
         const applyFilters = () => {
                 const filter = {};
@@ -184,7 +205,6 @@ const OrderHistory = () => {
                         return;
                 }
 
-                // Preserve customer filter if it exists
                 if (filters.customerid) {
                         filter.customerid = filters.customerid;
                         filter.customername = filters.customername;
@@ -193,7 +213,7 @@ const OrderHistory = () => {
                 setIsSidebarOpen(false);
                 setFilters(filter);
                 setPage(1);
-                fetchOrders(1, true, { _id: -1 }, filter, {}, searchText.trim());
+                fetchOrders(1, true, { [sortBy]: sortOrder }, filter, {}, searchText.trim());
         };
 
         const removeFilterChip = (type) => {
@@ -222,7 +242,7 @@ const OrderHistory = () => {
 
                 setFilters(updatedFilters);
                 setPage(1);
-                fetchOrders(1, true, { _id: -1 }, updatedFilters, {}, searchText.trim());
+                fetchOrders(1, true, { [sortBy]: sortOrder }, updatedFilters, {}, searchText.trim());
         };
 
         const clearAllFilters = () => {
@@ -232,12 +252,11 @@ const OrderHistory = () => {
                 setSearchText("");
                 setIsSidebarOpen(false);
                 setPage(1);
-                fetchOrders(1, true);
+                fetchOrders(1, true, { [sortBy]: sortOrder }, {}, {}, "");
         };
 
-        // MODIFIED: Scroll handler with better dependency management
+        // Scroll handler with sort support
         useEffect(() => {
-                // Don't attach scroll listener until after initial load
                 if (isInitialLoad) return;
 
                 const tableWrapper = document.querySelector('.common-table-wrapper');
@@ -247,7 +266,7 @@ const OrderHistory = () => {
 
                         const { scrollTop, scrollHeight, clientHeight } = tableWrapper;
                         if (scrollTop + clientHeight >= scrollHeight - 10 && hasNextPage && !loading) {
-                                fetchOrders(page + 1, false, { _id: -1 }, filters, {}, searchText.trim());
+                                fetchOrders(page + 1, false, { [sortBy]: sortOrder }, filters, {}, searchText.trim());
                         }
                 };
 
@@ -255,7 +274,7 @@ const OrderHistory = () => {
                         tableWrapper.addEventListener('scroll', handleScroll);
                         return () => tableWrapper.removeEventListener('scroll', handleScroll);
                 }
-        }, [page, hasNextPage, loading, filters, searchText, isInitialLoad]);
+        }, [page, hasNextPage, loading, filters, searchText, isInitialLoad, sortBy, sortOrder]);
 
         const handleCloseModal = () => {
                 setIsAnimatingOut(true);
@@ -268,7 +287,7 @@ const OrderHistory = () => {
 
         const handleViewBill = () => {
                 if (selectedOrder?.bill) {
-                        window.open(selectedOrder.bill, "_blank");
+                        setViewingBillUrl(selectedOrder.bill);
                 } else {
                         showPopup("Bill Not Found!", "error");
                 }
@@ -304,13 +323,11 @@ const OrderHistory = () => {
                 const from = normalizeDate(range.from);
                 const to = range.to ? normalizeDate(range.to) : undefined;
 
-                // If both start and end dates are already selected, start a new selection
                 if (dateRange.from && dateRange.to) {
                         setDateRange({ from, to: undefined });
                         return;
                 }
 
-                // If from and to are the same day, reset the end
                 if (from && to && from.getTime() === to.getTime()) {
                         setDateRange({ from, to: undefined });
                         return;
@@ -323,6 +340,8 @@ const OrderHistory = () => {
 
         const handleRefresh = () => {
                 setSearchText("");
+                setSortBy("_id");
+                setSortOrder(-1);
                 setPage(1);
                 fetchOrders(1, true, { _id: -1 }, filters, {}, "");
         };
@@ -334,7 +353,7 @@ const OrderHistory = () => {
                                 <div className="common-tbl-box user-not-select">
                                         <div className="common-tbl-header">
                                                 <h2 className="common-tbl-title">
-                                                        <p className="common-tbl-title">Order History</p>
+                                                        <p className="common-tbl-title">Orders</p>
                                                 </h2>
                                                 <div className="common-tbl-right-section">
                                                         <div className="global-search-container">
@@ -349,7 +368,7 @@ const OrderHistory = () => {
                                                                         onKeyDown={handleSearchKeyPress}
                                                                 />
                                                         </div>
-                                                      {Method.tooltip(
+                                                        {Method.tooltip(
                                                                 "Refresh",
                                                                 <button className="filter-btn" onClick={handleRefresh}>
                                                                         <span
@@ -360,10 +379,22 @@ const OrderHistory = () => {
                                                                         </span>
                                                                 </button>
                                                         )}
-                                                        <button className="filter-btn" onClick={() => setIsSidebarOpen(true)} disabled={loading}>
+                                                        <button className="filter-btn desktop-filter-btn" onClick={() => setIsSidebarOpen(true)} disabled={loading}>
                                                                 <span className="material-symbols-outlined main-color fs-25 m-3">filter_alt</span>
                                                         </button>
                                                 </div>
+                                        </div>
+
+                                        {/* Mobile Floating Action Button (FAB) */}
+                                        <div className="mobile-fab-container">
+                                                <button
+                                                        className="mobile-fab-filter-btn"
+                                                        onClick={() => setIsSidebarOpen(true)}
+                                                        disabled={loading}
+                                                        title="Filter Orders"
+                                                >
+                                                        <span className="material-symbols-outlined">filter_alt</span>
+                                                </button>
                                         </div>
 
                                         {/* ==== FILTER CHIPS ==== */}
@@ -424,13 +455,62 @@ const OrderHistory = () => {
                                                         <table className="common-table">
                                                                 <thead>
                                                                         <tr>
-                                                                                <th className="common-table-th">Order No</th>
-                                                                                <th className="common-table-th">Service</th>
-                                                                                <th className="common-table-th">Customer Name</th>
-                                                                                <th className="common-table-th">Amount</th>
-                                                                                <th className="common-table-th">Payment Method</th>
-                                                                                <th className="common-table-th">Status</th>
-                                                                                <th className="common-table-th">Date</th>
+                                                                                <th className="common-table-th" onClick={() => handleSort("orderno")}>
+                                                                                        <div className="th-content">
+                                                                                                Order No
+                                                                                                <span className={Method.getSortIconClass("orderno", sortBy, sortOrder)} onClick={() => handleSort("orderno")}>
+                                                                                                        {Method.getSortIcon("orderno", sortBy, sortOrder)}
+                                                                                                </span>
+                                                                                        </div>
+                                                                                </th>
+                                                                                <th className="common-table-th" onClick={() => handleSort("servicetype")}>
+                                                                                        <div className="th-content">
+                                                                                                Service
+                                                                                                <span className={Method.getSortIconClass("servicetype", sortBy, sortOrder)} onClick={() => handleSort("servicetype")}>
+                                                                                                        {Method.getSortIcon("servicetype", sortBy, sortOrder)}
+                                                                                                </span>
+                                                                                        </div>
+                                                                                </th>
+                                                                                <th className="common-table-th" onClick={() => handleSort("customername")}>
+                                                                                        <div className="th-content">
+                                                                                                Customer Name
+                                                                                                <span className={Method.getSortIconClass("customername", sortBy, sortOrder)} onClick={() => handleSort("customername")}>
+                                                                                                        {Method.getSortIcon("customername", sortBy, sortOrder)}
+                                                                                                </span>
+                                                                                        </div>
+                                                                                </th>
+                                                                                <th className="common-table-th" onClick={() => handleSort("totalamount")}>
+                                                                                        <div className="th-content">
+                                                                                                Amount
+                                                                                                <span className={Method.getSortIconClass("totalamount", sortBy, sortOrder)} onClick={() => handleSort("totalamount")}>
+                                                                                                        {Method.getSortIcon("totalamount", sortBy, sortOrder)}
+                                                                                                </span>
+                                                                                        </div>
+                                                                                </th>
+                                                                                <th className="common-table-th" onClick={() => handleSort("paymentmode")}>
+                                                                                        <div className="th-content">
+                                                                                                Payment Method
+                                                                                                <span className={Method.getSortIconClass("paymentmode", sortBy, sortOrder)} onClick={() => handleSort("paymentmode")}>
+                                                                                                        {Method.getSortIcon("paymentmode", sortBy, sortOrder)}
+                                                                                                </span>
+                                                                                        </div>
+                                                                                </th>
+                                                                                <th className="common-table-th" onClick={() => handleSort("adminstatus")}>
+                                                                                        <div className="th-content">
+                                                                                                Status
+                                                                                                <span className={Method.getSortIconClass("adminstatus", sortBy, sortOrder)} onClick={() => handleSort("adminstatus")}>
+                                                                                                        {Method.getSortIcon("adminstatus", sortBy, sortOrder)}
+                                                                                                </span>
+                                                                                        </div>
+                                                                                </th>
+                                                                                <th className="common-table-th" onClick={() => handleSort("createdAt")}>
+                                                                                        <div className="th-content">
+                                                                                                Date
+                                                                                                <span className={Method.getSortIconClass("createdAt", sortBy, sortOrder)} onClick={() => handleSort("createdAt")}>
+                                                                                                        {Method.getSortIcon("createdAt", sortBy, sortOrder)}
+                                                                                                </span>
+                                                                                        </div>
+                                                                                </th>
                                                                                 <th className="common-table-th">Details</th>
                                                                         </tr>
                                                                 </thead>
@@ -438,7 +518,6 @@ const OrderHistory = () => {
                                                                         {loading && orders.length === 0 ? (
                                                                                 <tr>
                                                                                         <td className="common-table-td" colSpan="8" style={{ textAlign: "center", padding: "40px" }}>
-                                                                                                {/* Loading orders... */}
                                                                                                 {Method.showLoader()}
                                                                                         </td>
                                                                                 </tr>
@@ -481,7 +560,6 @@ const OrderHistory = () => {
                                                                                         {loading && (
                                                                                                 <tr>
                                                                                                         <td className="common-table-td" colSpan="8" style={{ textAlign: "center", padding: "20px" }}>
-                                                                                                                {/* Loading more orders... */}
                                                                                                                 {Method.showLoader()}
                                                                                                         </td>
                                                                                                 </tr>
@@ -490,7 +568,6 @@ const OrderHistory = () => {
                                                                         ) : (
                                                                                 <tr>
                                                                                         <td className="common-table-td" colSpan="8" style={{ textAlign: "center", padding: "40px" }}>
-                                                                                                {/* No orders found */}
                                                                                                 {Method.noDataFound(Config.ordernotfoundimg)}
                                                                                         </td>
                                                                                 </tr>
@@ -606,7 +683,7 @@ const OrderHistory = () => {
                                                         </div>
                                                 </div>
                                         </div>
-                                )}
+                                 )}
 
                                 {/* Sidebar Overlay */}
                                 {isSidebarOpen && (
@@ -756,6 +833,7 @@ const OrderHistory = () => {
 
                                 {Method.renderPopup(popup, () => Method.hidePopup(setPopup, popupTimer))}
                         </div>
+                        {Method.renderBillViewer(viewingBillUrl, () => setViewingBillUrl(null))}
                 </>
         );
 };

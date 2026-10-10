@@ -1,69 +1,33 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import {
-  Area,
-  AreaChart,
-  Bar,
-  BarChart,
-  CartesianGrid,
-  Cell,
-  Legend,
-  Pie,
-  ResponsiveContainer,
-  Sector,
-  Tooltip,
-  XAxis,
-  YAxis,
-} from "recharts";
+import React, { useEffect, useState, useRef, useCallback } from "react";
+import { Area, AreaChart, Bar, BarChart, CartesianGrid, Legend, ResponsiveContainer, Tooltip, XAxis, YAxis, Cell } from "recharts";
 import EChartPie from "../config/EChartPie";
-
-import { useNavigate } from "react-router-dom";
 import "./dashboard.css";
 import { API, Config, Method, Navbar } from "../config/Init.js";
+import "react-day-picker/dist/style.css";
+import { CustomDateRangePicker } from "../config/Methods";
 
-const toNumber = (value) => {
-  const parsed = Number(value);
-  return Number.isFinite(parsed) ? parsed : 0;
-};
+const useIntersectionObserver = (options) => {
+  const [isIntersecting, setIsIntersecting] = useState(false);
+  const targetRef = useRef(null);
 
-const extractCreatedAt = (order) => {
-  const raw =
-    order?.createdat ||
-    order?.created_at ||
-    order?.createdon ||
-    order?.createdAt ||
-    order?.date;
-  if (!raw) return null;
-  const dt = new Date(raw);
-  return Number.isNaN(dt.getTime()) ? null : dt;
-};
+  useEffect(() => {
+    const observer = new IntersectionObserver(([entry]) => {
+      if (entry.isIntersecting) {
+        setIsIntersecting(true);
+      }
+    }, options);
 
-const normalizeOrders = (payload) => {
-  const source = Array.isArray(payload) ? payload : payload?.data || [];
-  return source.map((order) => {
-    const createdAt = extractCreatedAt(order);
-    const totalAmount = toNumber(order?.totalamount || order?.amount);
+    const currentTarget = targetRef.current;
+    if (currentTarget) {
+      observer.observe(currentTarget);
+    }
 
-    let status = "Pending";
-    if (Number(order?.adminstatus) === 2) status = "Completed";
-    if (Number(order?.adminstatus) === 3) status = "Cancelled";
-
-    const paymentMethod = Number(order?.paymentmethod);
-    const serviceType = Number(order?.servicetype);
-
-    return {
-      id: order?._id || order?.orderid || order?.id || "",
-      orderNo: order?.orderno || order?.orderid || order?._id || "-",
-      customer:
-        order?.customername || order?.name || order?.customer?.name || "Guest",
-      customerId: order?.customerid || order?.customer?._id || "",
-      createdAt,
-      amount: totalAmount,
-      paymentMethod,
-      serviceType,
-      status,
-      lineItems: Array.isArray(order?.data) ? order.data : [],
+    return () => {
+      if (currentTarget) observer.unobserve(currentTarget);
     };
-  });
+  }, [options]);
+
+  return [targetRef, isIntersecting];
 };
 
 const getDateRangeFromPreset = (value) => {
@@ -120,279 +84,576 @@ const getDateRangeFromPreset = (value) => {
       break;
   }
 
+  if (from) from.setHours(0, 0, 0, 0);
+  if (to) to.setHours(23, 59, 59, 999);
+
   return { from, to };
 };
 
-const renderActiveShape = (props) => {
-  const { cx, cy, innerRadius, outerRadius, startAngle, endAngle, fill } = props;
+const RevenueTrendChart = ({ data }) => {
+  const [hoveredDataKey, setHoveredDataKey] = useState(null);
+  const [hiddenDataKeys, setHiddenDataKeys] = useState({ revenue: false, orders: false });
+
+  const handleLegendMouseEnter = (o) => setHoveredDataKey(o.dataKey);
+  const handleLegendMouseLeave = () => setHoveredDataKey(null);
+  const handleLegendClick = (o) => setHiddenDataKeys(prev => ({ ...prev, [o.dataKey]: !prev[o.dataKey] }));
+
+  const renderLegend = (props) => {
+    const { payload } = props;
+    return (
+      <ul style={{ listStyle: "none", display: "flex", justifyContent: "center", padding: 0, margin: 0, marginTop: 15 }}>
+        {payload.map((entry, index) => {
+          const isHidden = hiddenDataKeys[entry.dataKey];
+          const isHovered = hoveredDataKey === entry.dataKey;
+          return (
+            <li
+              key={`item-${index}`}
+              style={{
+                display: "flex", alignItems: "center", marginRight: 20, cursor: "pointer",
+                opacity: isHidden ? 0.4 : 1,
+                color: "#bdeedd", fontWeight: 600, fontSize: 13,
+                transition: "opacity 0.2s"
+              }}
+              onMouseEnter={() => handleLegendMouseEnter(entry)}
+              onMouseLeave={handleLegendMouseLeave}
+              onClick={() => handleLegendClick(entry)}
+            >
+              <span style={{
+                display: "inline-block", width: 12, height: 12, borderRadius: "50%", marginRight: 8,
+                backgroundColor: isHidden ? "#666" : entry.color,
+                boxShadow: isHovered && !isHidden ? `0 0 8px ${entry.color}` : "none",
+                transition: "background-color 0.3s, box-shadow 0.3s"
+              }}></span>
+              {entry.value}
+            </li>
+          );
+        })}
+      </ul>
+    );
+  };
+
+  const revenueOpacity = hoveredDataKey === "orders" ? 0.1 : 1;
+  const ordersOpacity = hoveredDataKey === "revenue" ? 0.1 : 1;
+
+  const chartData = React.useMemo(() => {
+    if (!data) return [];
+    return data.map(item => ({
+      ...item,
+      revenue: hiddenDataKeys.revenue ? 0 : item.revenue,
+      orders: hiddenDataKeys.orders ? 0 : item.orders
+    }));
+  }, [data, hiddenDataKeys]);
+
+  const shouldRotate = chartData.length > 7;
+
   return (
-    <g>
-      <Sector
-        cx={cx}
-        cy={cy}
-        innerRadius={innerRadius}
-        outerRadius={outerRadius + 8}
-        startAngle={startAngle}
-        endAngle={endAngle}
-        fill={fill}
-        stroke="#11211c"
-        strokeWidth={3}
-        style={{ filter: "drop-shadow(0 6px 14px rgba(0,0,0,0.8))" }}
-      />
-    </g>
+    <ResponsiveContainer width="100%" height={shouldRotate ? 350 : 320}>
+      <AreaChart data={chartData} margin={{ top: 10, right: 10, left: 10, bottom: shouldRotate ? 10 : 0 }}>
+        <defs>
+          <linearGradient id="mcRevenueGradient" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="5%" stopColor={Config.themeColors[0]} stopOpacity={0.45} />
+            <stop offset="95%" stopColor={Config.themeColors[0]} stopOpacity={0.02} />
+          </linearGradient>
+          <linearGradient id="mcOrdersGradient" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="5%" stopColor={Config.themeColors[1]} stopOpacity={0.45} />
+            <stop offset="95%" stopColor={Config.themeColors[1]} stopOpacity={0.02} />
+          </linearGradient>
+        </defs>
+        <CartesianGrid strokeDasharray="3 3" stroke="rgba(71, 217, 168, 0.14)" />
+        <XAxis
+          dataKey="label"
+          stroke="#bdeedd"
+          interval={0}
+          angle={shouldRotate ? -45 : 0}
+          textAnchor={shouldRotate ? "end" : "middle"}
+          height={shouldRotate ? 65 : 30}
+          tick={{ fill: "#bdeedd", fontSize: shouldRotate ? (chartData.length > 20 ? 10 : 11) : 12 }}
+          dx={shouldRotate ? -4 : 0}
+          dy={shouldRotate ? 4 : 0}
+        />
+        <YAxis yAxisId="left" stroke="#bdeedd" />
+        <YAxis yAxisId="right" orientation="right" stroke={Config.themeColors[1]} />
+        <Tooltip
+          contentStyle={{ background: "#11211c", border: "1px solid #47d9a8", borderRadius: 8 }}
+        />
+        <Legend content={renderLegend} verticalAlign="bottom" />
+        <Area
+          yAxisId="left"
+          type="monotone"
+          dataKey="revenue"
+          name="Revenue"
+          stroke={Config.themeColors[0]}
+          fill="url(#mcRevenueGradient)"
+          strokeWidth={2.5}
+          activeDot={hiddenDataKeys.revenue ? false : { r: 6 }}
+          style={{ opacity: revenueOpacity, transition: 'opacity 2s ease' }}
+        />
+        <Area
+          yAxisId="right"
+          type="monotone"
+          dataKey="orders"
+          name="Orders"
+          stroke={Config.themeColors[1]}
+          fill="url(#mcOrdersGradient)"
+          strokeWidth={2.5}
+          activeDot={hiddenDataKeys.orders ? false : { r: 6 }}
+          style={{ opacity: ordersOpacity, transition: 'opacity 2s ease' }}
+        />
+      </AreaChart>
+    </ResponsiveContainer>
   );
 };
 
-const renderPieLabel = (props) => {
-  const { x, y, cx, name } = props;
+const RevenueTrendTable = ({ data }) => {
+  if (!data || !Array.isArray(data) || data.length === 0) return null;
+  const totalOrders = data.reduce((acc, curr) => acc + (Number(curr.orders) || 0), 0);
+  const totalRevenue = data.reduce((acc, curr) => acc + (Number(curr.revenue) || 0), 0);
+
   return (
-    <text x={x} y={y} fill="#bdeedd" textAnchor={x > cx ? "start" : "end"} dominantBaseline="central" fontSize={12}>
-      {name}
-    </text>
+    <div className="mc-table-wrap">
+      <table className="mc-table">
+        <thead>
+          <tr>
+            <th>Date / Period</th>
+            <th style={{ textAlign: "right" }}>Orders</th>
+            <th style={{ textAlign: "right" }}>Revenue</th>
+          </tr>
+        </thead>
+        <tbody>
+          {data.map((row, idx) => (
+            <tr key={idx}>
+              <td style={{ color: "#edf9f5", fontWeight: 500 }}>{row.date || row.label || row.name}</td>
+              <td style={{ textAlign: "right", color: "#47d9a8", fontWeight: 600 }}>
+                {Number(row.orders || 0).toLocaleString('en-IN')}
+              </td>
+              <td style={{ textAlign: "right", color: "#d6f6ed", fontWeight: 600 }}>
+                ₹{Number(row.revenue || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+        <tfoot>
+          <tr className="mc-table-total-row">
+            <td style={{ color: "#47d9a8", fontWeight: 700 }}>Total</td>
+            <td style={{ textAlign: "right", color: "#47d9a8", fontWeight: 700 }}>
+              {totalOrders.toLocaleString('en-IN')}
+            </td>
+            <td style={{ textAlign: "right", color: "#47d9a8", fontWeight: 700 }}>
+              ₹{totalRevenue.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            </td>
+          </tr>
+        </tfoot>
+      </table>
+    </div>
+  );
+};
+
+const PaymentMethodTable = ({ data }) => {
+  if (!data || !Array.isArray(data) || data.length === 0) return null;
+  const filteredData = data.filter(item => item.value > 0 && item.name?.toLowerCase() !== "other");
+  const totalCount = filteredData.reduce((acc, curr) => acc + (Number(curr.value) || 0), 0);
+
+  return (
+    <div className="mc-table-wrap">
+      <table className="mc-table">
+        <thead>
+          <tr>
+            <th>Payment Method</th>
+            <th style={{ textAlign: "right" }}>Orders</th>
+            <th style={{ textAlign: "right" }}>Share</th>
+          </tr>
+        </thead>
+        <tbody>
+          {filteredData.map((row, idx) => {
+            const percentage = totalCount > 0 ? ((row.value / totalCount) * 100).toFixed(1) : "0.0";
+            return (
+              <tr key={idx}>
+                <td>
+                  <span style={{ display: "inline-flex", alignItems: "center", gap: "8px" }}>
+                    <span
+                      style={{
+                        width: "10px",
+                        height: "10px",
+                        borderRadius: "50%",
+                        backgroundColor: Config.themeColors[idx % Config.themeColors.length]
+                      }}
+                    />
+                    <span style={{ color: "#edf9f5", fontWeight: 500 }}>{row.name}</span>
+                  </span>
+                </td>
+                <td style={{ textAlign: "right", color: "#47d9a8", fontWeight: 600 }}>
+                  {Number(row.value || 0).toLocaleString('en-IN')}
+                </td>
+                <td style={{ textAlign: "right", color: "#d6f6ed" }}>
+                  {percentage}%
+                </td>
+              </tr>
+            );
+          })}
+        </tbody>
+        <tfoot>
+          <tr className="mc-table-total-row">
+            <td style={{ color: "#47d9a8", fontWeight: 700 }}>Total</td>
+            <td style={{ textAlign: "right", color: "#47d9a8", fontWeight: 700 }}>
+              {totalCount.toLocaleString('en-IN')}
+            </td>
+            <td style={{ textAlign: "right", color: "#47d9a8", fontWeight: 700 }}>100.0%</td>
+          </tr>
+        </tfoot>
+      </table>
+    </div>
+  );
+};
+
+const ServiceTypeTable = ({ data }) => {
+  if (!data || !Array.isArray(data) || data.length === 0) return null;
+  const totalCount = data.reduce((acc, curr) => acc + (Number(curr.value) || 0), 0);
+
+  return (
+    <div className="mc-table-wrap">
+      <table className="mc-table">
+        <thead>
+          <tr>
+            <th>Service Type</th>
+            <th style={{ textAlign: "right" }}>Orders</th>
+            <th style={{ textAlign: "right" }}>Share</th>
+          </tr>
+        </thead>
+        <tbody>
+          {data.map((row, idx) => {
+            const percentage = totalCount > 0 ? ((row.value / totalCount) * 100).toFixed(1) : "0.0";
+            return (
+              <tr key={idx}>
+                <td>
+                  <span style={{ display: "inline-flex", alignItems: "center", gap: "8px" }}>
+                    <span
+                      style={{
+                        width: "10px",
+                        height: "10px",
+                        borderRadius: "50%",
+                        backgroundColor: Config.themeColors[idx % Config.themeColors.length]
+                      }}
+                    />
+                    <span style={{ color: "#edf9f5", fontWeight: 500 }}>{row.name}</span>
+                  </span>
+                </td>
+                <td style={{ textAlign: "right", color: "#47d9a8", fontWeight: 600 }}>
+                  {Number(row.value || 0).toLocaleString('en-IN')}
+                </td>
+                <td style={{ textAlign: "right", color: "#d6f6ed" }}>
+                  {percentage}%
+                </td>
+              </tr>
+            );
+          })}
+        </tbody>
+        <tfoot>
+          <tr className="mc-table-total-row">
+            <td style={{ color: "#47d9a8", fontWeight: 700 }}>Total</td>
+            <td style={{ textAlign: "right", color: "#47d9a8", fontWeight: 700 }}>
+              {totalCount.toLocaleString('en-IN')}
+            </td>
+            <td style={{ textAlign: "right", color: "#47d9a8", fontWeight: 700 }}>100.0%</td>
+          </tr>
+        </tfoot>
+      </table>
+    </div>
+  );
+};
+
+const TopSellingItemsTable = ({ data }) => {
+  if (!data || !Array.isArray(data) || data.length === 0) return null;
+
+  return (
+    <div className="mc-table-wrap">
+      <table className="mc-table">
+        <thead>
+          <tr>
+            <th style={{ width: "50px" }}>Rank</th>
+            <th>Item Name</th>
+            <th style={{ textAlign: "right" }}>Orders Sold</th>
+          </tr>
+        </thead>
+        <tbody>
+          {data.map((row, idx) => (
+            <tr key={idx}>
+              <td>
+                <span
+                  style={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    width: "24px",
+                    height: "24px",
+                    borderRadius: "6px",
+                    background: idx < 3 ? "rgba(71, 217, 168, 0.25)" : "rgba(255, 255, 255, 0.06)",
+                    color: idx < 3 ? "#47d9a8" : "#aaa",
+                    fontWeight: 700,
+                    fontSize: "12px",
+                    border: idx < 3 ? "1px solid rgba(71, 217, 168, 0.5)" : "1px solid rgba(255, 255, 255, 0.1)"
+                  }}
+                >
+                  {idx + 1}
+                </span>
+              </td>
+              <td style={{ fontWeight: 600, color: "#edf9f5" }}>{row.name}</td>
+              <td style={{ textAlign: "right", color: "#47d9a8", fontWeight: 700 }}>
+                {Number(row.orders || row.value || 0).toLocaleString('en-IN')}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+};
+
+const ChartCard = ({ title, globalTimeRangeKey, globalDateRange, apiMethod, renderContent, renderTable, globalRefreshTrigger }) => {
+  const [ref, isIntersecting] = useIntersectionObserver({ rootMargin: "200px", threshold: 0.1 });
+  const [hasFetched, setHasFetched] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [data, setData] = useState(null);
+
+  // Default to table on mobile (width <= 768), chart on desktop
+  const [viewMode, setViewMode] = useState(() => {
+    return window.innerWidth <= 768 ? "table" : "chart";
+  });
+
+  const [localTimeRange, setLocalTimeRange] = useState(globalTimeRangeKey);
+  const [dropdownOpen, setDropdownOpen] = useState(false);
+  const dropdownRef = useRef(null);
+
+  const [showCalendar, setShowCalendar] = useState(false);
+  const [calendarMonth, setCalendarMonth] = useState(new Date());
+  const [customRange, setCustomRange] = useState({ from: undefined, to: undefined });
+  const [appliedRange, setAppliedRange] = useState(null);
+
+  const fetchChartData = useCallback(async (rangeKey, customDateRange = null) => {
+    setLoading(true);
+    try {
+      let range;
+      if (rangeKey === "custom" && customDateRange?.from && customDateRange?.to) {
+        range = { from: new Date(customDateRange.from), to: new Date(customDateRange.to) };
+        range.from.setHours(0, 0, 0, 0);
+        range.to.setHours(23, 59, 59, 999);
+      } else {
+        range = getDateRangeFromPreset(rangeKey);
+      }
+
+      setAppliedRange(range);
+
+      const res = await API[apiMethod](range.from, range.to);
+      if (res?.status === 200) {
+        setData(res.data || res);
+      } else {
+        setData(null);
+      }
+    } catch (e) {
+      console.error(e);
+      setData(null);
+    } finally {
+      setLoading(false);
+      setHasFetched(true);
+    }
+  }, [apiMethod]);
+
+  useEffect(() => {
+    setLocalTimeRange(globalTimeRangeKey);
+    if (globalTimeRangeKey === "custom" && globalDateRange) {
+      setCustomRange(globalDateRange);
+    }
+  }, [globalTimeRangeKey, globalDateRange]);
+
+  useEffect(() => {
+    if (isIntersecting) {
+      if (localTimeRange === "custom" && (!customRange.from || !customRange.to)) {
+        return;
+      }
+      fetchChartData(localTimeRange, customRange);
+    }
+  }, [isIntersecting, localTimeRange, customRange, fetchChartData, globalRefreshTrigger]);
+
+  const handleLocalRangeSelect = (val) => {
+    setDropdownOpen(false);
+    if (val === "custom") {
+      setShowCalendar(true);
+    } else {
+      setLocalTimeRange(val);
+    }
+  };
+
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
+        setDropdownOpen(false);
+        setShowCalendar(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  return (
+    <div className="mc-chart-panel" ref={ref}>
+      <div className="mc-panel-title mc-chart-header">
+        <div className="mc-chart-title-wrap">
+          <span className="mc-chart-title-text">{title}</span>
+          {appliedRange && appliedRange.from && appliedRange.to && (
+            <div className="filter-chips mc-applied-chips">
+              <div className="chip user-not-select mc-applied-chip">
+                {Method.formatDatetoYYYYMMDD(appliedRange.from)} to {Method.formatDatetoYYYYMMDD(appliedRange.to)}
+              </div>
+            </div>
+          )}
+        </div>
+        <div className="mc-chart-controls">
+          {renderTable && (
+            Method.tooltip(
+              viewMode === "chart" ? "Switch to Table View" : "Switch to Chart View",
+              <button
+                className={`filter-btn mc-view-toggle-btn ${viewMode === "table" ? "active" : ""}`}
+                onClick={() => setViewMode(prev => prev === "chart" ? "table" : "chart")}
+              >
+                <span className="material-symbols-outlined main-color fs-22">
+                  {viewMode === "chart" ? "table_chart" : "bar_chart"}
+                </span>
+              </button>
+            )
+          )}
+          {Method.tooltip(
+            "Refresh",
+            <button className="filter-btn mc-refresh-btn" onClick={() => fetchChartData(localTimeRange, customRange)}>
+              <span
+                className="material-symbols-outlined main-color fs-25 m-3 rotate-45" style={{ animation: loading ? "spin 1s linear infinite" : "none" }}
+              >
+                cached
+              </span>
+            </button>
+          )}
+          <div className="mc-range-filter" ref={dropdownRef}>
+            <div
+              className="custom-date-container"
+              onClick={(e) => { e.stopPropagation(); setDropdownOpen(!dropdownOpen); }}
+            >
+              <span className="date-text">
+                {Config.Time_Ranges.find(o => o.value === localTimeRange)?.label || "Select Time Range"}
+              </span>
+              <span
+                className="material-symbols-outlined fs-20 arrow"
+                style={{
+                  transform: dropdownOpen ? "rotate(-90deg)" : "rotate(90deg)",
+                  transition: "transform 0.3s ease",
+                  color: "#47d9a8",
+                }}
+              >
+                keyboard_arrow_right
+              </span>
+            </div>
+            <div className="mc-range-dropdown">
+              {dropdownOpen &&
+                Method.renderDropdownOptions({
+                  options: Config.Time_Ranges,
+                  activeValue: localTimeRange,
+                  onSelect: handleLocalRangeSelect,
+                })}
+            </div>
+            {showCalendar && (
+              <CustomDateRangePicker
+                customRange={customRange}
+                setCustomRange={setCustomRange}
+                calendarMonth={calendarMonth}
+                setCalendarMonth={setCalendarMonth}
+                onRangeComplete={(newRange) => {
+                  setLocalTimeRange("custom");
+                  setShowCalendar(false);
+                }}
+              />
+            )}
+          </div>
+        </div>
+      </div>
+      <div className="mc-chart-content" style={{ minHeight: "260px", position: "relative" }}>
+        {loading ? (
+          <div style={{ display: "flex", justifyContent: "center", alignItems: "center", height: "260px", width: "100%" }}>
+            {Method.showLoader()}
+          </div>
+        ) : data && (!Array.isArray(data) || data.length > 0) ? (
+          viewMode === "table" && renderTable ? (
+            renderTable(data)
+          ) : (
+            renderContent(data)
+          )
+        ) : hasFetched ? (
+          <div style={{ display: "flex", justifyContent: "center", alignItems: "center", height: "260px", width: "100%" }}>
+            {Method.noDataFound(Config.nodatafoundimg, "")}
+          </div>
+        ) : (
+          <div style={{ display: "flex", justifyContent: "center", alignItems: "center", height: "260px", width: "100%" }}>
+            <span style={{ color: "#777" }}>Scroll to load...</span>
+          </div>
+        )}
+      </div>
+    </div>
   );
 };
 
 const Dashboard = () => {
-  const navigate = useNavigate();
   const rangeRef = useRef(null);
-  const [timeRange, setTimeRange] = useState("this_month");
+  const [timeRange, setTimeRange] = useState("this_week");
   const [timeRangeDropdownOpen, setTimeRangeDropdownOpen] = useState(false);
-  const [dateRange, setDateRange] = useState(() => getDateRangeFromPreset("this_month"));
-  const [orders, setOrders] = useState([]);
-  const [loading, setLoading] = useState(false);
-  const [refreshing, setRefreshing] = useState(false);
-  const [error, setError] = useState("");
-  const [totalDocs, setTotalDocs] = useState(0);
-  const [activeOrderStatusIdx, setActiveOrderStatusIdx] = useState(-1);
-  const [activePaymentIdx, setActivePaymentIdx] = useState(-1);
+  const [dateRange, setDateRange] = useState(() => getDateRangeFromPreset("this_week"));
+  const [globalRefreshTrigger, setGlobalRefreshTrigger] = useState(0);
 
-  const fetchAllOrders = useCallback(async () => {
-    const pageLimit = 200;
-    let page = 1;
-    let hasNext = true;
-    let aggregated = [];
-    let totalFromApi = 0;
+  const [showCalendar, setShowCalendar] = useState(false);
+  const [calendarMonth, setCalendarMonth] = useState(new Date());
+  const [customRange, setCustomRange] = useState({ from: undefined, to: undefined });
 
-    while (hasNext) {
-      const response = await API.ListPendingPayments(page, pageLimit, { _id: -1 }, {}, {}, "");
-      if (response?.status !== 200) {
-        return { status: response?.status || 500, message: response?.message || "Unable to load orders." };
-      }
+  const [metricsLoading, setMetricsLoading] = useState(false);
+  const [metrics, setMetrics] = useState({
+    totalorders: 0, revenue: 0, penddingorders: 0, completedorders: 0, cancelledorders: 0, totalcustomer: 0
+  });
 
-      const rows = Array.isArray(response?.data) ? response.data : response?.data?.data || [];
-      aggregated = [...aggregated, ...rows];
-      totalFromApi = toNumber(response?.totaldocs);
-
-      const nextPageFlag = toNumber(response?.nextpage) === 1;
-      const reachedTotal = totalFromApi > 0 && aggregated.length >= totalFromApi;
-      hasNext = nextPageFlag && !reachedTotal;
-      page += 1;
-
-      if (page > 100) break;
-    }
-
-    return { status: 200, data: aggregated, totaldocs: totalFromApi };
-  }, []);
-
-  const fetchDashboardData = useCallback(async (isRefresh = false) => {
-    if (isRefresh) setRefreshing(true);
-    else setLoading(true);
-
+  const fetchMetrics = useCallback(async () => {
+    setMetricsLoading(true);
     try {
-      const response = await fetchAllOrders();
-      if (response?.status === 200) {
-        setOrders(normalizeOrders(response?.data || []));
-        setTotalDocs(toNumber(response?.totaldocs));
-        setError("");
-      } else {
-        setOrders([]);
-        setTotalDocs(0);
-        setError(response?.message || "Unable to load dashboard data.");
+      const res = await API.DashboardCount(dateRange.from, dateRange.to);
+      if (res?.status === 200) {
+        setMetrics(res);
       }
-    } catch (fetchError) {
-      setOrders([]);
-      setTotalDocs(0);
-      setError("Unable to load dashboard data.");
+    } catch (e) {
+      console.error(e);
     } finally {
-      if (isRefresh) setRefreshing(false);
-      else setLoading(false);
+      setMetricsLoading(false);
     }
-  }, [fetchAllOrders]);
+  }, [dateRange]);
 
   useEffect(() => {
-    fetchDashboardData();
-  }, [fetchDashboardData]);
+    fetchMetrics();
+  }, [fetchMetrics]);
 
   useEffect(() => {
     const handleClickOutside = (e) => {
       if (rangeRef.current && !rangeRef.current.contains(e.target)) {
         setTimeRangeDropdownOpen(false);
+        setShowCalendar(false);
       }
     };
-
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
   const handleTimeRangeSelect = (value) => {
-    setTimeRange(value);
-    setDateRange(getDateRangeFromPreset(value));
     setTimeRangeDropdownOpen(false);
+    if (value === "custom") {
+      setShowCalendar(true);
+    } else {
+      setTimeRange(value);
+      setDateRange(getDateRangeFromPreset(value));
+    }
   };
 
-  const filteredOrders = useMemo(() => {
-    const hasRange = dateRange?.from && dateRange?.to;
-    if (!hasRange) return orders;
-
-    const start = new Date(dateRange.from);
-    const end = new Date(dateRange.to);
-    start.setHours(0, 0, 0, 0);
-    end.setHours(23, 59, 59, 999);
-
-    return orders.filter((order) => {
-      if (!order.createdAt) return false;
-      return order.createdAt >= start && order.createdAt <= end;
-    });
-  }, [orders, dateRange]);
-
-  const metrics = useMemo(() => {
-    const totalOrders = filteredOrders.length;
-    const completed = filteredOrders.filter((o) => o.status === "Completed").length;
-    const pending = filteredOrders.filter((o) => o.status === "Pending").length;
-    const cancelled = filteredOrders.filter((o) => o.status === "Cancelled").length;
-    const revenue = filteredOrders.reduce((sum, o) => sum + o.amount, 0);
-
-    const uniqueCustomerKeys = new Set(
-      filteredOrders.map((o) => o.customerId || o.customer).filter(Boolean)
-    );
-
-    return {
-      totalOrders,
-      completed,
-      pending,
-      cancelled,
-      revenue,
-      avgOrderValue: totalOrders ? revenue / totalOrders : 0,
-      activeCustomers: uniqueCustomerKeys.size,
-      completionRate: totalOrders ? (completed / totalOrders) * 100 : 0,
-    };
-  }, [filteredOrders]);
-
-  const revenueTrend = useMemo(() => {
-    const map = new Map();
-    const from = dateRange?.from ? new Date(dateRange.from) : null;
-    const to = dateRange?.to ? new Date(dateRange.to) : null;
-    const hasFullRange = Boolean(from && to);
-    const diffDays = hasFullRange
-      ? Math.max(1, Math.ceil((to.getTime() - from.getTime()) / (1000 * 60 * 60 * 24)) + 1)
-      : 30;
-
-    const addPoint = (key, label, amount) => {
-      const prev = map.get(key) || { key, label, revenue: 0, orders: 0 };
-      prev.revenue += amount;
-      prev.orders += 1;
-      map.set(key, prev);
-    };
-
-    filteredOrders.forEach((order) => {
-      if (!order.createdAt) return;
-      const dt = order.createdAt;
-
-      if (diffDays <= 1) {
-        const hour = dt.getHours();
-        const key = `${dt.getFullYear()}-${dt.getMonth()}-${dt.getDate()}-${hour}`;
-        addPoint(key, `${String(hour).padStart(2, "0")}:00`, order.amount);
-        return;
-      }
-
-      if (diffDays >= 300) {
-        const month = dt.getMonth();
-        const key = `${dt.getFullYear()}-${month}`;
-        const label = dt.toLocaleString("en-US", { month: "short", year: "2-digit" });
-        addPoint(key, label, order.amount);
-        return;
-      }
-
-      const dayKey = `${dt.getFullYear()}-${dt.getMonth()}-${dt.getDate()}`;
-      const label = dt.toLocaleDateString("en-US", { month: "short", day: "numeric" });
-      addPoint(dayKey, label, order.amount);
-    });
-
-    return Array.from(map.values()).sort((a, b) => a.key.localeCompare(b.key));
-  }, [filteredOrders, dateRange]);
-
-  const orderStatusData = useMemo(
-    () => [
-      { name: "Completed", value: metrics.completed },
-      { name: "Pending", value: metrics.pending },
-      { name: "Cancelled", value: metrics.cancelled },
-    ],
-    [metrics]
-  );
-
-  const paymentData = useMemo(() => {
-    let cash = 0;
-    let upi = 0;
-    let other = 0;
-
-    filteredOrders.forEach((order) => {
-      if (order.paymentMethod === 1) cash += 1;
-      else if (order.paymentMethod === 2) upi += 1;
-      else other += 1;
-    });
-
-    return [
-      { name: "Cash", value: cash },
-      { name: "UPI", value: upi },
-      { name: "Other", value: other },
-    ];
-  }, [filteredOrders]);
-
-  const serviceTypeData = useMemo(() => {
-    let dineIn = 0;
-    let takeAway = 0;
-    let other = 0;
-
-    filteredOrders.forEach((order) => {
-      if (order.serviceType === 1) dineIn += 1;
-      else if (order.serviceType === 2) takeAway += 1;
-      else other += 1;
-    });
-
-    return [
-      { name: "Dine In", value: dineIn },
-      { name: "Take Away", value: takeAway },
-      { name: "Other", value: other },
-    ];
-  }, [filteredOrders]);
-
-  const topItems = useMemo(() => {
-    const itemMap = new Map();
-
-    filteredOrders.forEach((order) => {
-      order.lineItems.forEach((item) => {
-        const key = item?.foodname || item?.name || "Unnamed Item";
-        const qty = toNumber(item?.quantity || 1);
-        const price = toNumber(item?.price);
-        const revenue = qty * price;
-
-        const existing = itemMap.get(key) || { name: key, orders: 0, revenue: 0 };
-        existing.orders += qty;
-        existing.revenue += revenue;
-        itemMap.set(key, existing);
-      });
-    });
-
-    return Array.from(itemMap.values())
-      .sort((a, b) => b.orders - a.orders)
-      .slice(0, 6);
-  }, [filteredOrders]);
-
-  const recentOrders = useMemo(() => {
-    return [...filteredOrders]
-      .sort((a, b) => (b.createdAt?.getTime() || 0) - (a.createdAt?.getTime() || 0))
-      .slice(0, 6);
-  }, [filteredOrders]);
+  const avgOrderValue = metrics.totalorders ? metrics.revenue / metrics.totalorders : 0;
+  const completionRate = metrics.totalorders ? (metrics.completedorders / metrics.totalorders) * 100 : 0;
 
   return (
     <div className="dashboard user-not-select">
@@ -407,6 +668,17 @@ const Dashboard = () => {
           </div>
 
           <div className="mc-dashboard-actions">
+            {Method.tooltip(
+              "Refresh All",
+              <button className="filter-btn" onClick={() => { fetchMetrics(); setGlobalRefreshTrigger(prev => prev + 1); }}>
+                <span
+                  className="material-symbols-outlined main-color fs-25 m-3 rotate-45" style={{ animation: metricsLoading ? "spin 1s linear infinite" : "none" }}
+
+                >
+                  cached
+                </span>
+              </button>
+            )}
             <div className="mc-range-filter" ref={rangeRef}>
               <div
                 className="custom-date-container"
@@ -437,184 +709,225 @@ const Dashboard = () => {
                     onSelect: handleTimeRangeSelect,
                   })}
               </div>
+              {showCalendar && (
+                <CustomDateRangePicker
+                  customRange={customRange}
+                  setCustomRange={setCustomRange}
+                  calendarMonth={calendarMonth}
+                  setCalendarMonth={setCalendarMonth}
+                  onRangeComplete={(newRange) => {
+                    setTimeRange("custom");
+                    setDateRange(newRange);
+                    setShowCalendar(false);
+                  }}
+                />
+              )}
             </div>
-
-            <button className="filter-btn" onClick={() => fetchDashboardData(true)}>
-              <span
-                className="material-symbols-outlined main-color fs-25 m-3 rotate-45"
-                style={{ animation: refreshing ? "spin 1s linear infinite" : "none" }}
-              >
-                cached
-              </span>
-            </button>
           </div>
         </div>
 
-        {loading ? (
+        {metricsLoading && metrics.totalorders === 0 ? (
           <div className="mc-dashboard-loading">{Method.showLoader()}</div>
         ) : (
           <>
-            {error ? <div className="mc-dashboard-error">{error}</div> : null}
-
             <div className="mc-kpi-grid">
               <div className="mc-kpi-card">
-                <span>Total Orders</span>
-                <strong>{totalDocs || orders.length}</strong>
+                <div className="mc-kpi-icon-wrap"><span className="material-symbols-outlined fs-24">receipt_long</span></div>
+                <div className="mc-kpi-info">
+                  <span>Total Orders</span>
+                  <strong>{parseFloat(metrics.totalorders).toLocaleString('en-IN')}</strong>
+                </div>
               </div>
               <div className="mc-kpi-card">
-                <span>Revenue</span>
-                <strong>Rs {metrics.revenue.toFixed(2)}</strong>
+                <div className="mc-kpi-icon-wrap"><span className="material-symbols-outlined fs-24">attach_money</span></div>
+                <div className="mc-kpi-info">
+                  <span>Revenue</span>
+                  <strong>₹{parseFloat(metrics.revenue).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</strong>
+                </div>
               </div>
               <div className="mc-kpi-card">
-                <span>Avg Order Value</span>
-                <strong>Rs {metrics.avgOrderValue.toFixed(2)}</strong>
+                <div className="mc-kpi-icon-wrap"><span className="material-symbols-outlined fs-24">trending_up</span></div>
+                <div className="mc-kpi-info">
+                  <span>Avg Order Value</span>
+                  <strong>₹{parseFloat(avgOrderValue).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</strong>
+                </div>
               </div>
               <div className="mc-kpi-card">
-                <span>Active Customers</span>
-                <strong>{metrics.activeCustomers}</strong>
+                <div className="mc-kpi-icon-wrap"><span className="material-symbols-outlined fs-24">group</span></div>
+                <div className="mc-kpi-info">
+                  <span>Active Customers</span>
+                  <strong>{parseFloat(metrics.totalcustomer).toLocaleString('en-IN')}</strong>
+                </div>
               </div>
               <div className="mc-kpi-card">
-                <span>Completion Rate</span>
-                <strong>{metrics.completionRate.toFixed(1)}%</strong>
-              </div>
-            </div>
-
-            <div className="mc-chart-panel">
-              <div className="mc-panel-title">Revenue Trend</div>
-              <ResponsiveContainer width="100%" height={320}>
-                <AreaChart data={revenueTrend}>
-                  <defs>
-                    <linearGradient id="mcRevenueGradient" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#47d9a8" stopOpacity={0.45} />
-                      <stop offset="95%" stopColor="#47d9a8" stopOpacity={0.02} />
-                    </linearGradient>
-                  </defs>
-                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(71, 217, 168, 0.14)" />
-                  <XAxis dataKey="label" stroke="#bdeedd" />
-                  <YAxis stroke="#bdeedd" />
-                  <Tooltip
-                    contentStyle={{
-                      background: "#11211c",
-                      border: "1px solid #47d9a8",
-                      borderRadius: 8,
-                    }}
-                  />
-                  <Legend />
-                  <Area
-                    type="monotone"
-                    dataKey="revenue"
-                    name="Revenue"
-                    stroke="#47d9a8"
-                    fill="url(#mcRevenueGradient)"
-                    strokeWidth={2.5}
-                  />
-                </AreaChart>
-              </ResponsiveContainer>
-            </div>
-
-            <div className="mc-grid-2">
-              <div className="mc-chart-panel">
-                <div className="mc-panel-title">Order Status</div>
-                <EChartPie data={orderStatusData} />
-              </div>
-
-              <div className="mc-chart-panel">
-                <div className="mc-panel-title">Service Type Split</div>
-                <ResponsiveContainer width="100%" height={260}>
-                  <BarChart data={serviceTypeData}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="rgba(71, 217, 168, 0.14)" />
-                    <XAxis dataKey="name" stroke="#bdeedd" />
-                    <YAxis stroke="#bdeedd" />
-                    <Tooltip />
-                    <Bar dataKey="value" fill="#47d9a8" radius={[8, 8, 0, 0]} />
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
-            </div>
-
-            <div className="mc-grid-2">
-              <div className="mc-chart-panel">
-                <div className="mc-panel-title">Payment Method Mix</div>
-                <EChartPie data={paymentData} />
-              </div>
-
-              <div className="mc-chart-panel">
-                <div className="mc-panel-title">Quick Actions</div>
-                <div className="mc-quick-actions">
-                  <button className="mc-action-btn" onClick={() => navigate("/orders")}>Manage Orders</button>
-                  <button className="mc-action-btn" onClick={() => navigate("/menu")}>Manage Menu</button>
-                  <button className="mc-action-btn" onClick={() => navigate("/fooditems")}>Food Items</button>
-                  <button className="mc-action-btn" onClick={() => navigate("/notifications")}>Notifications</button>
+                <div className="mc-kpi-icon-wrap"><span className="material-symbols-outlined fs-24">task_alt</span></div>
+                <div className="mc-kpi-info">
+                  <span>Completion Rate</span>
+                  <strong>{completionRate.toFixed(1)}%</strong>
                 </div>
               </div>
             </div>
 
+            <div className="mc-grid-1">
+              <ChartCard
+                title="Revenue Trend"
+                globalTimeRangeKey={timeRange}
+                globalDateRange={dateRange}
+                globalRefreshTrigger={globalRefreshTrigger}
+                apiMethod="DashboardRevenueTrend"
+                renderContent={(data) => <RevenueTrendChart data={data} />}
+                renderTable={(data) => <RevenueTrendTable data={data} />}
+              />
+            </div>
+
             <div className="mc-grid-2">
-              <div className="mc-chart-panel">
-                <div className="mc-panel-title">Top Selling Items</div>
-                <div className="mc-table-wrap">
-                  <table className="mc-table">
-                    <thead>
-                      <tr>
-                        <th>Item</th>
-                        <th>Qty</th>
-                        <th>Revenue</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {topItems.length ? (
-                        topItems.map((item) => (
-                          <tr key={item.name}>
-                            <td>{item.name}</td>
-                            <td>{item.orders}</td>
-                            <td>Rs {item.revenue.toFixed(2)}</td>
-                          </tr>
-                        ))
-                      ) : (
+              <ChartCard
+                title="Payment Method"
+                globalTimeRangeKey={timeRange}
+                globalDateRange={dateRange}
+                globalRefreshTrigger={globalRefreshTrigger}
+                apiMethod="DashboardPaymentMethod"
+                renderContent={(data) => (
+                  <div style={{ height: "260px", width: "100%" }}>
+                    <EChartPie data={data} />
+                  </div>
+                )}
+                renderTable={(data) => <PaymentMethodTable data={data} />}
+              />
+
+              <ChartCard
+                title="Service Type Split"
+                globalTimeRangeKey={timeRange}
+                globalDateRange={dateRange}
+                globalRefreshTrigger={globalRefreshTrigger}
+                apiMethod="DashboardServiceType"
+                renderTable={(data) => <ServiceTypeTable data={data} />}
+                renderContent={(data) => (
+                  <ResponsiveContainer width="100%" height={260}>
+                    <BarChart data={data}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="rgba(71, 217, 168, 0.14)" />
+                      <XAxis dataKey="name" stroke="#bdeedd" />
+                      <YAxis stroke="#bdeedd" />
+                      <Tooltip
+                        cursor={{ fill: "rgba(71, 217, 168, 0.07)" }}
+                        contentStyle={{
+                          background: "rgba(17, 33, 28, 0.95)",
+                          border: "1px solid rgba(71, 217, 168, 0.3)",
+                          borderRadius: 12,
+                          padding: "10px 15px",
+                          boxShadow: "0 8px 32px rgba(0,0,0,0.5)",
+                          backdropFilter: "blur(8px)",
+                        }}
+                        labelStyle={{ color: "#47d9a8", fontWeight: 700, marginBottom: 4 }}
+                        itemStyle={{ color: "#bdeedd", fontWeight: 600 }}
+                        formatter={(value, name) => [value, "Count"]}
+                      />
+                      <Bar dataKey="value" radius={[8, 8, 0, 0]}>
+                        {data.map((entry, index) => {
+                          const hex = Config.themeColors[index % Config.themeColors.length];
+                          const r = parseInt(hex.slice(1, 3), 16);
+                          const g = parseInt(hex.slice(3, 5), 16);
+                          const b = parseInt(hex.slice(5, 7), 16);
+                          return (
+                            <Cell
+                              key={`cell-${index}`}
+                              fill={`rgba(${r}, ${g}, ${b}, 0.3)`}
+                              stroke={hex}
+                              strokeWidth={2}
+                            />
+                          );
+                        })}
+                      </Bar>
+                    </BarChart>
+                  </ResponsiveContainer>
+                )}
+              />
+            </div>
+
+            <div className="mc-grid-2">
+              <ChartCard
+                title="Top Selling Items"
+                globalTimeRangeKey={timeRange}
+                globalDateRange={dateRange}
+                globalRefreshTrigger={globalRefreshTrigger}
+                apiMethod="DashboardTopItems"
+                renderTable={(data) => <TopSellingItemsTable data={data} />}
+                renderContent={(data) => (
+                  <ResponsiveContainer width="100%" height={320}>
+                    <BarChart data={data} layout="vertical" margin={{ top: 5, right: 20, left: 20, bottom: 5 }}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="rgba(71, 217, 168, 0.14)" />
+                      <XAxis type="number" stroke="#bdeedd" />
+                      <YAxis dataKey="name" type="category" stroke="#bdeedd" tick={{ fontSize: 11 }} width={90} />
+                      <Tooltip
+                        cursor={{ fill: "rgba(71, 217, 168, 0.07)" }}
+                        contentStyle={{
+                          background: "rgba(17, 33, 28, 0.95)",
+                          border: "1px solid rgba(71, 217, 168, 0.3)",
+                          borderRadius: 12,
+                          padding: "10px 15px",
+                          boxShadow: "0 8px 32px rgba(0,0,0,0.5)",
+                          backdropFilter: "blur(8px)",
+                        }}
+                        labelStyle={{ color: "#47d9a8", fontWeight: 700, marginBottom: 4 }}
+                        itemStyle={{ color: "#bdeedd", fontWeight: 600 }}
+                        formatter={(value) => [value, "Orders Sold"]}
+                      />
+                      <Bar dataKey="orders" radius={[0, 8, 8, 0]}>
+                        {data.map((entry, index) => {
+                          const hex = Config.themeColors[index % Config.themeColors.length];
+                          const r = parseInt(hex.slice(1, 3), 16);
+                          const g = parseInt(hex.slice(3, 5), 16);
+                          const b = parseInt(hex.slice(5, 7), 16);
+                          return (
+                            <Cell
+                              key={`cell-top-${index}`}
+                              fill={`rgba(${r}, ${g}, ${b}, 0.35)`}
+                              stroke={hex}
+                              strokeWidth={2}
+                            />
+                          );
+                        })}
+                      </Bar>
+                    </BarChart>
+                  </ResponsiveContainer>
+                )}
+              />
+
+              <ChartCard
+                title="Recent Orders"
+                globalTimeRangeKey={timeRange}
+                globalDateRange={dateRange}
+                globalRefreshTrigger={globalRefreshTrigger}
+                apiMethod="DashboardRecentOrders"
+                renderContent={(data) => (
+                  <div className="mc-table-wrap">
+                    <table className="mc-table">
+                      <thead>
                         <tr>
-                          <td colSpan={3} className="mc-empty-cell">No item data for this range.</td>
+                          <th>Order</th>
+                          <th>Customer</th>
+                          <th>Amount</th>
+                          <th>Status</th>
                         </tr>
-                      )}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-
-              <div className="mc-chart-panel">
-                <div className="mc-panel-title">Recent Orders</div>
-                <div className="mc-table-wrap">
-                  <table className="mc-table">
-                    <thead>
-                      <tr>
-                        <th>Order</th>
-                        <th>Customer</th>
-                        <th>Amount</th>
-                        <th>Status</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {recentOrders.length ? (
-                        recentOrders.map((order) => (
+                      </thead>
+                      <tbody>
+                        {data.map((order) => (
                           <tr key={order.id || order.orderNo}>
                             <td>{order.orderNo}</td>
                             <td>{order.customer}</td>
-                            <td>Rs {order.amount.toFixed(2)}</td>
+                            <td>Rs {(order.amount || 0).toFixed(2)}</td>
                             <td>
-                              <span className={`mc-status mc-status-${order.status.toLowerCase()}`}>
+                              <span className={`mc-status mc-status-${(order.status || "").toLowerCase()}`}>
                                 {order.status}
                               </span>
                             </td>
                           </tr>
-                        ))
-                      ) : (
-                        <tr>
-                          <td colSpan={4} className="mc-empty-cell">No orders in this range.</td>
-                        </tr>
-                      )}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              />
             </div>
           </>
         )}

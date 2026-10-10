@@ -87,8 +87,11 @@ function ShiftTimeMaster() {
         }, [showPopup]);
 
         useEffect(() => {
-                fetchShiftTimes(searchText);
-        }, [fetchShiftTimes, searchText]);
+		const timer = setTimeout(() => {
+			fetchShiftTimes(searchText);
+		}, 500);
+		return () => clearTimeout(timer);
+	}, [fetchShiftTimes, searchText]);
 
         useEffect(() => {
                 const handleClickOutside = (event) => {
@@ -275,7 +278,7 @@ function ShiftTimeMaster() {
                                                         </div>
                                                         {canAdd && (
                                                                 <button
-                                                                        className="main-btn"
+                                                                        className="main-btn desktop-add-btn"
                                                                         onClick={() => {
                                                                                 closeActionMenu();
                                                                                 resetForm();
@@ -288,6 +291,24 @@ function ShiftTimeMaster() {
                                                         )}
                                                 </div>
                                         </div>
+
+                                        {/* Mobile Floating Action Button (FAB) */}
+                                        {canAdd && (
+                                                <div className="mobile-fab-container">
+                                                        <button
+                                                                className="mobile-fab-btn"
+                                                                onClick={() => {
+                                                                        closeActionMenu();
+                                                                        resetForm();
+                                                                        setIsSidebarOpen(true);
+                                                                }}
+                                                                disabled={loading}
+                                                                title="Add Shift Time"
+                                                        >
+                                                                <span className="material-symbols-outlined">add</span>
+                                                        </button>
+                                                </div>
+                                        )}
 
                                         <div className="common-table-container">
                                                 <div className="common-table-wrapper">

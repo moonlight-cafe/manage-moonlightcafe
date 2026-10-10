@@ -1,8 +1,11 @@
 import React, { useEffect, useRef, useState } from 'react';
 import './OrderHistory.css';
 import { Navbar, Method, API, Config } from "../config/Init.js"
+import { useNavigate } from 'react-router-dom';
+
 
 const PaymentVerify = () => {
+        const navigate = useNavigate();
         const [payments, setPayments] = useState([]);
         const [loading, setLoading] = useState(false);
         const [popup, setPopup] = useState({ message: "", type: "", visible: false });
@@ -15,6 +18,7 @@ const PaymentVerify = () => {
         const [isAnimatingOut, setIsAnimatingOut] = useState(false);
         const [confirmingOrderId, setConfirmingOrderId] = useState(null);
         const [isInitialLoad, setIsInitialLoad] = useState(true); // NEW: Track initial load
+        const [viewingBillUrl, setViewingBillUrl] = useState(null);
 
         const showPopup = (message, type = "error") =>
                 Method.showPopup(setPopup, popupTimer, message, type);
@@ -114,7 +118,7 @@ const PaymentVerify = () => {
 
         const handleViewBill = () => {
                 if (selectedOrder?.bill) {
-                        window.open(selectedOrder.bill, "_blank");
+                        setViewingBillUrl(selectedOrder.bill);
                 } else {
                         showPopup("Bill Not Found!", "error")
                 }
@@ -313,26 +317,26 @@ const PaymentVerify = () => {
                                                 </div>
 
                                                 <div className="modal-table-container">
-                                                        <div className="modal-table-wrapper">
+                                                        <div className="modal-table-wrapper no-scrollbar" style={{ paddingBottom: '20px' }}>
                                                                 <table className="modal-table">
                                                                         <thead>
                                                                                 <tr>
-                                                                                        <th className="common-table-th">#</th>
-                                                                                        <th className="common-table-th">Item</th>
-                                                                                        <th className="common-table-th">Image</th>
-                                                                                        <th className="common-table-th">Qty</th>
-                                                                                        <th className="common-table-th">Price</th>
+                                                                                        <th className="common-table-th" style={{ textAlign: "left" }}>#</th>
+                                                                                        <th className="common-table-th" style={{ textAlign: "left" }}>Item</th>
+                                                                                        <th className="common-table-th" style={{ textAlign: "left" }}>Image</th>
+                                                                                        <th className="common-table-th" style={{ textAlign: "left" }}>Qty</th>
+                                                                                        <th className="common-table-th" style={{ textAlign: "left" }}>Price</th>
                                                                                 </tr>
                                                                         </thead>
 
                                                                         <tbody>
                                                                                 {selectedOrder.data.map((item, i) => (
                                                                                         <tr key={i}>
-                                                                                                <td className="common-table-td">{i + 1}</td>
-                                                                                                <td className="common-table-td">{item.foodname}</td>
-                                                                                                <td className="common-table-td"><img src={item.imageurl} alt={item.foodname} className="food-img" /></td>
-                                                                                                <td className="common-table-td">{item.quantity}</td>
-                                                                                                <td className="common-table-td">₹{item.price}</td>
+                                                                                                <td className="common-table-td" style={{ textAlign: "left" }}>{i + 1}</td>
+                                                                                                <td className="common-table-td" style={{ textAlign: "left" }}>{item.foodname}</td>
+                                                                                                <td className="common-table-td" style={{ textAlign: "left" }}><img src={item.imageurl} alt={item.foodname} className="food-img" /></td>
+                                                                                                <td className="common-table-td" style={{ textAlign: "left" }}>{item.quantity}</td>
+                                                                                                <td className="common-table-td" style={{ textAlign: "left" }}>₹{item.price}</td>
                                                                                         </tr>
                                                                                 ))}
                                                                         </tbody>
@@ -405,6 +409,8 @@ const PaymentVerify = () => {
                                         </div>
                                 </div>
                         )}
+
+                        {Method.renderBillViewer(viewingBillUrl, () => setViewingBillUrl(null))}
                 </>
         );
 };

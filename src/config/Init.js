@@ -6,4 +6,4 @@ import _Navbar from '../Components/Navbar.js'
 export const Config = new _Config();
 export const Method = new _Method();
 export const API = new _BackendApi();
-export const Navbar = _Navbar
+export const Navbar = _Navbar;
